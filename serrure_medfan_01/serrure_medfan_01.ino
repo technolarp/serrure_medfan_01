@@ -2,7 +2,7 @@
    ----------------------------------------------------------------------------
    TECHNOLARP - https://technolarp.github.io/
    SERRURE MEDFAN 01 - https://github.com/technolarp/serrure_medfan_01
-   version 1.0 - 10/2021
+   version 1.0 - 01/2022
    ----------------------------------------------------------------------------
 */
 
@@ -19,18 +19,17 @@
    ----------------------------------------------------------------------------
    PINOUT
    D0     NEOPIXEL
-   D1     I2C SCL => SCL PCF8574
-   D2     I2C SDA => SDA PCF8574
+   D1     I2C SCL => SCL MCP23017
+   D2     I2C SDA => SDA MCP23017
+
+   MCP_A0 switch reed 1
+   MCP_A1 switch reed 2
+   MCP_A2 switch reed 3
+   MCP_A3 switch reed 4
    ----------------------------------------------------------------------------
 */
 
 #include <Arduino.h>
-
-/*
-add check sur code
-add scintillement
-reecrire technolarp_fastled
-*/
 
 // WIFI
 #include <ESPAsyncTCP.h>
@@ -41,57 +40,55 @@ AsyncWebServer server(80);
 // WEBSOCKET
 AsyncWebSocket ws("/ws");
 
-// FASTLED
-#include <FastLED.h>
-#define NUM_LEDS 50
-#define DATA_PIN D0
-CRGB leds[NUM_LEDS];
-
-// MCP23017
-#include "technolarp_mcp23017.h"
-M_mcp23017 aMcp23017(0);
+char bufferWebsocket[300];
+bool flagBufferWebsocket = false;
 
 // CONFIG
 #include "config.h"
 M_config aConfig;
 
-// CODE ACTUEL DE LA SERRURE
-uint8_t codeSerrureActuel[10] = {0,0,0,0,0,0,0,0,0,0};
+#define BUFFERSENDSIZE 600
+char bufferToSend[BUFFERSENDSIZE];
 
+// FASTLED
+#include <technolarp_fastled.h>
+M_fastled aFastled;
 
-// STATUTS DE LA SERRURE
+// MCP23017
+#include "technolarp_mcp23017.h"
+M_mcp23017 aMcp23017;
+
+// STATUTS DE L OBJET
 enum {
-  SERRURE_OUVERTE = 0,
-  SERRURE_FERMEE = 1,
-  SERRURE_BLOQUEE = 2,
-  SERRURE_ERREUR = 3,
-  SERRURE_OUVERTURE = 4,
-  SERRURE_BLINK = 5
+  OBJET_OUVERT = 0,
+  OBJET_FERME = 1,
+  OBJET_OUVERTURE = 2,
+  OBJET_BLINK = 5
 };
 
 // DIVERS
 bool uneFois = true;
-bool blinkUneFois = true;
-bool blinkflag = true;
-uint8_t cptBlink=0;
+
+uint32_t previousMillisReset;
 bool checkTimeoutFlag = false;
+
+uint32_t previousMillisBrightness;
+uint32_t intervalScintillement;
+bool increaseBrightness = true;
+uint8_t indexBrightness = 0;
 
 uint32_t lastDebounceTime[16] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
 uint8_t lastPinState[16] = {HIGH, HIGH, HIGH, HIGH, HIGH, HIGH, HIGH, HIGH,HIGH, HIGH, HIGH, HIGH, HIGH, HIGH, HIGH, HIGH};
 uint8_t pinState[16] = {HIGH, HIGH, HIGH, HIGH, HIGH, HIGH, HIGH, HIGH,HIGH, HIGH, HIGH, HIGH, HIGH, HIGH, HIGH, HIGH};
 bool pinActive[16] = {true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true};
 
+// HEARTBEAT
 uint32_t previousMillisHB;
-uint32_t currentMillisHB;
 uint32_t intervalHB;
 
 // REFRESH
 uint32_t previousMillisRefresh;
-uint32_t currentMillisRefresh;
 uint32_t intervalRefresh;
-
-uint32_t previousMillisReset;
-uint32_t currentMillisReset;
 
 /*
    ----------------------------------------------------------------------------
@@ -109,8 +106,11 @@ void setup()
   Serial.println(F("----------------------------------------------------------------------------"));
   Serial.println(F("TECHNOLARP - https://technolarp.github.io/"));
   Serial.println(F("SERRURE MEDFAN 01 - https://github.com/technolarp/serrure_mefan_01"));
-  Serial.println(F("version 1.0 - 10/2021"));
+  Serial.println(F("version 1.0 - 01/2022"));
   Serial.println(F("----------------------------------------------------------------------------"));
+  
+  // I2C RESET
+  aConfig.i2cReset();
   
   // CONFIG OBJET
   Serial.println(F(""));
@@ -130,58 +130,65 @@ void setup()
   aConfig.writeObjectConfig("/config/objectconfig.txt");
 
   // MCP23017
-  aMcp23017.setDebounceDelay(300);
+  aMcp23017.beginMcp23017(0);
   
-  // LED RGB
-  FastLED.addLeds<NEOPIXEL, DATA_PIN>(leds, NUM_LEDS);
-  FastLED.setBrightness(aConfig.objectConfig.brightness);
-
+  // FASTLED
+  aFastled.setNbLed(aConfig.objectConfig.activeLeds);
   // animation led de depart
-  FastLED.clear();
-  for (int i = 0; i < aConfig.objectConfig.activeLeds * 2; i++)
-  {
-    leds[i % aConfig.objectConfig.activeLeds]=CRGB::Blue;
-    FastLED.show();
-    delay(50);
-    leds[i % aConfig.objectConfig.activeLeds]=CRGB::Black;
-    FastLED.show();
-  }
-  FastLED.show();
-  FastLED.clear();
+  aFastled.animationDepart(50, aFastled.getNbLed()*2, CRGB::Blue);
 
-  // check code
-  //checkCode();
+  // initialiser l'aleat
+  randomSeed(ESP.getCycleCount());
 
   // WIFI
   WiFi.disconnect(true);
+
+  Serial.println(F(""));
+  Serial.println(F("connecting WiFi"));
+  
   
   // AP MODE
   WiFi.mode(WIFI_AP_STA);
   WiFi.softAPConfig(aConfig.networkConfig.apIP, aConfig.networkConfig.apIP, aConfig.networkConfig.apNetMsk);
-  WiFi.softAP(aConfig.networkConfig.apName, aConfig.networkConfig.apPassword);
+  bool apRC = WiFi.softAP(aConfig.networkConfig.apName, aConfig.networkConfig.apPassword);
+
+  if (apRC)
+  {
+    Serial.println(F("AP WiFi OK"));
+  }
+  else
+  {
+    Serial.println(F("AP WiFi failed"));
+  }
+
+  // Print ESP soptAP IP Address
+  Serial.print(F("softAPIP: "));
+  Serial.println(WiFi.softAPIP());
   
   /*
   // CLIENT MODE POUR DEBUG
   const char* ssid = "MYDEBUG";
-  const char* password = "pppppp";
+  const char* password = "3V8WtBvJ";
   WiFi.mode(WIFI_STA);
   WiFi.begin(ssid, password);
-
+  
   if (WiFi.waitForConnectResult() != WL_CONNECTED) 
   {
-    Serial.printf("WiFi Failed!\n");        
+    Serial.println(F("WiFi Failed!"));
+  }
+  else
+  {
+    Serial.println(F("WiFi OK"));
   }
   */
   
-  // WEB SERVER
   // Print ESP Local IP Address
   Serial.print(F("localIP: "));
   Serial.println(WiFi.localIP());
-  Serial.print(F("softAPIP: "));
-  Serial.println(WiFi.softAPIP());
-
+  
+  // WEB SERVER
   // Route for root / web page
-  server.serveStatic("/", LittleFS, "/www/").setDefaultFile("config.html").setTemplateProcessor(processor);
+  server.serveStatic("/", LittleFS, "/www/").setDefaultFile("config.html");
   server.serveStatic("/config", LittleFS, "/config/");
   server.onNotFound(notFound);
 
@@ -191,21 +198,20 @@ void setup()
 
   // Start server
   server.begin();
-  
-  // REFRESH
-  currentMillisRefresh = millis();
-  previousMillisRefresh = currentMillisRefresh;
+
+  // REFRESH LED/REED
+  previousMillisRefresh = millis();
   intervalRefresh = 200;
 
   // RESET TIMEOUT
-  currentMillisReset = millis();
-  previousMillisReset = currentMillisReset;
-  //intervalReset = 5000;
+  previousMillisReset = millis();
+
+  previousMillisBrightness = millis();
+  intervalScintillement = 200;
   
   // HEARTBEAT
-  currentMillisHB = millis();
-  previousMillisHB = currentMillisHB;
-  intervalHB = 20000;
+  previousMillisHB = millis();
+  intervalHB = 10000;
 
   // SERIAL
   Serial.println(F(""));
@@ -219,8 +225,6 @@ void setup()
 */
 
 
-
-
 /*
    ----------------------------------------------------------------------------
    LOOP
@@ -228,41 +232,39 @@ void setup()
 */
 void loop() 
 {
-  // avoid watchdog reset
-  yield();
-  
   // WEBSOCKET
   ws.cleanupClients();
 
+  // FASTLED
+  aFastled.updateAnimation();
+
+  // CONTROL BRIGHTNESS
+  controlBrightness();
+
+  
+  
+  
+uint8_t indexBrightness = 0;
+
   // gerer le statut de la serrure
-  switch (aConfig.objectConfig.statutSerrureActuel)
+  switch (aConfig.objectConfig.statutActuel)
   {
-    case SERRURE_FERMEE:
+    case OBJET_FERME:
       // la serrure est fermee
       serrureFermee();
       break;
 
-    case SERRURE_OUVERTE:
+    case OBJET_OUVERT:
       // la serrure est ouverte
       serrureOuverte();
       break;
 
-    case SERRURE_BLOQUEE:
-      // la serrure est bloquee
-      serrureBloquee();
-      break;
-
-    case SERRURE_ERREUR:
-      // un code incorrect a ete entrer
-      serrureErreur();
-      break;
-
-    case SERRURE_OUVERTURE:
+    case OBJET_OUVERTURE:
       // animation de changement d'etat
       serrureOuverture();
       break;
       
-    case SERRURE_BLINK:
+    case OBJET_BLINK:
       // blink led pour identification
       serrureBlink();
       break;
@@ -272,13 +274,20 @@ void loop()
       break;
   }
 
-  // HEARTBEAT
-  currentMillisHB = millis();
-  if(currentMillisHB - previousMillisHB > intervalHB)
+  // traiter le buffer du websocket
+  if (flagBufferWebsocket)
   {
-    previousMillisHB = currentMillisHB;
-    
-    Serial.println("heartbeat");
+    flagBufferWebsocket = false;
+    handleWebsocketBuffer();
+  }
+
+  // HEARTBEAT
+  if(millis() - previousMillisHB > intervalHB)
+  {
+    previousMillisHB = millis();
+
+    // envoyer l'uptime
+    sendUptime();
   }
 }
 /*
@@ -286,9 +295,6 @@ void loop()
    FIN DU LOOP
    ----------------------------------------------------------------------------
 */
-
-
-
 
 
 /*
@@ -302,8 +308,7 @@ void serrureFermee()
   {
     uneFois = false;
 
-    Serial.print(F("SERRURE FERMEE"));
-    Serial.println();
+    Serial.println(F("SERRURE FERMEE"));
   }
 
   checkReed();
@@ -316,110 +321,69 @@ void serrureOuverte()
   {
     uneFois = false;
     
-    Serial.print(F("SERRURE OUVERTE"));
-    Serial.println();
+    Serial.println(F("SERRURE OUVERTE"));
   }
 
   checkReed();
   checkTimeout();
 }
 
-void serrureBloquee()
-{
-  
-}
-
-void serrureErreur()
-{
-  
-}
-
 void serrureOuverture()
 {
   if (uneFois)
   {
-    //uneFois = false;
-    
-    Serial.print(F("SERRURE OUVERTURE"));
-    Serial.println();
-
-    delay(500);
+    uneFois = false;
+    Serial.println(F("SERRURE OUVERTURE"));
 
     aConfig.objectConfig.indexCode=0;
 
-    for (uint8_t k=0;k<6;k++)
-    {
-      FastLED.clear();
-      for (uint8_t i=0;i<aConfig.objectConfig.activeLeds;i++)
-      {
-        leds[i]=aConfig.objectConfig.couleurs[2];
-      }
-      FastLED.show();
-      delay(75);
-      FastLED.clear();
-      FastLED.show();
-      delay(75);
-    }
-    FastLED.clear();
-    FastLED.show();
+    aFastled.animationBlink02Start(75, 1550, aConfig.objectConfig.couleurs[2], CRGB::Black);
+  }
+
+  // fin de l'animation blink
+  if(!aFastled.isAnimActive()) 
+  {
+    uneFois = true;
+
+    // inverser le statut de la serrure
+    aConfig.objectConfig.statutActuel=!aConfig.objectConfig.statutPrecedent;
     
-    // changement etat serrure
-    aConfig.objectConfig.statutSerrureActuel=aConfig.objectConfig.statutSerrurePrecedent;
-    aConfig.objectConfig.statutSerrureActuel=!aConfig.objectConfig.statutSerrureActuel;
-    sendStatutSerrure();
+    writeObjectConfig();
+    sendObjectConfig();
+
+    Serial.println(F("END OUVERTURE"));
   }
 }
 
 void serrureBlink()
 {
-  if (blinkUneFois)
+  if (uneFois)
   {
-    blinkUneFois = false;
-    
-    Serial.print(F("SERRURE BLINK"));
-    Serial.println();
+    uneFois = false;
+    Serial.println(F("SERRURE BLINK"));
 
-    cptBlink=0;
-    currentMillisRefresh = millis();
-    previousMillisRefresh=currentMillisRefresh;
+    sendStatut();
+
+    aFastled.animationBlink02Start(100, 3000, CRGB::Blue, CRGB::Black);
   }
 
-  currentMillisRefresh = millis();
-  if(currentMillisRefresh - previousMillisRefresh > intervalRefresh)
+  // fin de l'animation blink
+  if(!aFastled.isAnimActive()) 
   {
-    previousMillisRefresh = currentMillisRefresh;
+    uneFois = true;
 
-    if (blinkflag)
-    {
-      for (uint8_t i=0;i<aConfig.objectConfig.activeLeds;i++)
-      {
-        leds[i]=CRGB::Blue;
-      }
-    }
-    else
-    {
-      for (uint8_t i=0;i<aConfig.objectConfig.activeLeds;i++)
-      {
-        leds[i]=CRGB::Black;
-      }
-    }
-    FastLED.show();    
-    
-    cptBlink++;
-    blinkflag=!blinkflag;
-  }
+    aConfig.objectConfig.statutActuel = aConfig.objectConfig.statutPrecedent;
 
-  if (cptBlink==20)
-  {
-    aConfig.objectConfig.statutSerrureActuel=aConfig.objectConfig.statutSerrurePrecedent;
-    sendStatutSerrure();
-    uneFois=true;
+    writeObjectConfig();
+    sendObjectConfig();
+
+    Serial.println(F("END SERRURE "));
   }
 }
 
 void checkReed()
-{  
-  int8_t lastPin=-1;
+{
+  int16_t lastPin=-1;
   
   for (uint8_t i=0;i<aConfig.objectConfig.nbSegments;i++)
   {
@@ -444,7 +408,7 @@ void checkReed()
     }
 
     uint32_t currentTime = millis();
-    if ( (pinActive[i]==false) && ((currentTime - lastDebounceTime[i]) > 1000) )
+    if ( (pinActive[i]==false) && ((currentTime - lastDebounceTime[i]) > aConfig.objectConfig.debounceTime) )
     {
       lastDebounceTime[i]=currentTime;
       pinActive[i]=true;
@@ -470,8 +434,7 @@ void checkReed()
     }
 
     checkTimeoutFlag = true;
-    currentMillisReset = millis();
-    previousMillisReset = currentMillisReset;
+    previousMillisReset = millis();
     
     showSparklePixel(lastPin);
 
@@ -480,10 +443,10 @@ void checkReed()
 
   if (aConfig.objectConfig.indexCode==aConfig.objectConfig.tailleCode)
   {
-    aConfig.objectConfig.statutSerrurePrecedent=aConfig.objectConfig.statutSerrureActuel;
-    aConfig.objectConfig.statutSerrureActuel=SERRURE_OUVERTURE;
+    aConfig.objectConfig.statutPrecedent=aConfig.objectConfig.statutActuel;
+    aConfig.objectConfig.statutActuel=OBJET_OUVERTURE;
 
-    sendStatutSerrure();
+    sendStatut();
     
     uneFois=true;
     previousMillisRefresh=0;
@@ -491,23 +454,21 @@ void checkReed()
   }
   
   // refresh leds
-  currentMillisRefresh = millis();
-  if(currentMillisRefresh - previousMillisRefresh > intervalRefresh)
+  if(millis() - previousMillisRefresh > intervalRefresh)
   {
-    previousMillisRefresh = currentMillisRefresh;
+    previousMillisRefresh = millis();
     
     for (uint8_t i=0;i<aConfig.objectConfig.nbSegments;i++)
     {
       for (uint8_t j=0;j<aConfig.objectConfig.ledParSegment;j++)
       {
-        if (aConfig.objectConfig.statutSerrureActuel==SERRURE_FERMEE)
+        if (aConfig.objectConfig.statutActuel==OBJET_FERME)
         {
-          //Serial.println(i*aConfig.objectConfig.ledParSegment+j);
-          leds[i*aConfig.objectConfig.ledParSegment+j]=aConfig.objectConfig.couleurs[0];
+          aFastled.ledOn(i*aConfig.objectConfig.ledParSegment+j, aConfig.objectConfig.couleurs[0], false);
         }
-        else if (aConfig.objectConfig.statutSerrureActuel==SERRURE_OUVERTE)
+        else if (aConfig.objectConfig.statutActuel==OBJET_OUVERT)
         {
-          leds[i*aConfig.objectConfig.ledParSegment+j]=aConfig.objectConfig.couleurs[1];
+          aFastled.ledOn(i*aConfig.objectConfig.ledParSegment+j, aConfig.objectConfig.couleurs[1], false);
         }
       }
     }
@@ -516,10 +477,10 @@ void checkReed()
     {
       for (uint8_t j=0;j<aConfig.objectConfig.ledParSegment;j++)
       {
-        leds[aConfig.objectConfig.code[i]*aConfig.objectConfig.ledParSegment+j]=aConfig.objectConfig.couleurs[2];
+        aFastled.ledOn(aConfig.objectConfig.code[i]*aConfig.objectConfig.ledParSegment+j, aConfig.objectConfig.couleurs[2], false);
       }
     }
-    FastLED.show();
+    aFastled.ledShow();
   }
 }
 
@@ -528,10 +489,9 @@ void checkTimeout()
   // reset si timeout
   if (checkTimeoutFlag)
   {
-    currentMillisReset = millis();
-    if(currentMillisReset - previousMillisReset > aConfig.objectConfig.timeoutReset)
+    if( millis() - previousMillisReset > aConfig.objectConfig.timeoutReset)
     {
-      previousMillisReset = currentMillisReset;
+      previousMillisReset = millis();
   
       Serial.println(F("timeout"));    
       uneFois = true;
@@ -542,18 +502,15 @@ void checkTimeout()
   }
 }
 
-
 void showSparklePixel(uint8_t led)
 {
   for (uint8_t j=0;j<aConfig.objectConfig.ledParSegment;j++)
   {
-    //leds[aConfig.objectConfig.code[led]*aConfig.objectConfig.ledParSegment+j]=CRGB::White;
-    leds[led*aConfig.objectConfig.ledParSegment+j]=CRGB::White;
+    aFastled.ledOn(led*aConfig.objectConfig.ledParSegment+j, CRGB::White, false);
   }
-    
-  FastLED.show();
-  currentMillisRefresh = millis();
-  previousMillisRefresh = currentMillisRefresh;
+  aFastled.ledShow();
+  
+  previousMillisRefresh = millis();
 }
 
 // index of max value in an array
@@ -574,47 +531,6 @@ int indexMaxValeur(uint8_t arraySize, uint8_t arrayToSearch[])
   return(indexMax);
 }
 
-/*
-   ----------------------------------------------------------------------------
-   FIN DES FONCTIONS ADDITIONNELLES
-   ----------------------------------------------------------------------------
-*/
-
-void sendUptime()
-{
-  uint32_t now = millis() / 1000;
-  uint16_t days = now / 86400;
-  uint16_t hours = (now%86400) / 3600;
-  uint16_t minutes = (now%3600) / 60;
-  uint16_t seconds = now % 60;
-    
-  String toSend = "{\"uptime\":\"";
-  toSend+= String(days) + String("d ") + String(hours) + String("h ") + String(minutes) + String("m ") + String(seconds) + String("s");
-  toSend+= "\"}";
-
-  ws.textAll(toSend);
-  Serial.println(toSend);
-}
-
-void sendStatutSerrure()
-{
-  String toSend = "{\"statutSerrureActuel\":";
-  toSend+= aConfig.objectConfig.statutSerrureActuel;
-  toSend+= "}";
-
-  ws.textAll(toSend);
-}
-
-void convertStrToRGB(String source, uint8_t* r, uint8_t* g, uint8_t* b)
-{
-  uint32_t  number = (uint32_t) strtol( &source[1], NULL, 16);
-  
-  // Split them up into r, g, b values
-  *r = number >> 16;
-  *g = number >> 8 & 0xFF;
-  *b = number & 0xFF;
-}
-
 void checkCharacter(char* toCheck, char* allowed, char replaceChar)
 {
   for (int i = 0; i < strlen(toCheck); i++)
@@ -633,27 +549,6 @@ uint16_t checkValeur(uint16_t valeur, uint16_t minValeur, uint16_t maxValeur)
   return(min(max(valeur,minValeur), maxValeur));
 }
 
-String processor(const String& var)
-{
-  if (var == "MAXLEDS")
-  {
-    return String(NUM_LEDS);
-  }
-
-  if (var == "APNAME")
-  {
-    return String(aConfig.networkConfig.apName);
-  }
-
-  if (var == "OBJECTNAME")
-  {
-    return String(aConfig.objectConfig.objectName);
-  }
-   
-  return String();
-}
-
-
 void onEvent(AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEventType type, void *arg, uint8_t *data, size_t len) 
 {
    switch (type) 
@@ -661,12 +556,14 @@ void onEvent(AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEventType 
       case WS_EVT_CONNECT:
         Serial.printf("WebSocket client #%u connected from %s\n", client->id(), client->remoteIP().toString().c_str());
         // send config value to html
-        ws.textAll(aConfig.stringJsonFile("/config/objectconfig.txt"));
-        ws.textAll(aConfig.stringJsonFile("/config/networkconfig.txt"));
-
+        sendObjectConfig();
+        sendNetworkConfig();
+        
         // send volatile info
+        sendMaxLed();
+
         sendUptime();
-    
+        sendStatut();    
         break;
         
       case WS_EVT_DISCONNECT:
@@ -683,20 +580,24 @@ void onEvent(AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEventType 
   }
 }
 
-
 void handleWebSocketMessage(void *arg, uint8_t *data, size_t len) 
 {
-  
   AwsFrameInfo *info = (AwsFrameInfo*)arg;
   if (info->final && info->index == 0 && info->len == len && info->opcode == WS_TEXT) 
   {
-    char buffer[100];
     data[len] = 0;
-    sprintf(buffer,"%s\n", (char*)data);
-    Serial.print(buffer);
+    sprintf(bufferWebsocket,"%s\n", (char*)data);
+    Serial.print(len);
+    Serial.print(bufferWebsocket);
+    flagBufferWebsocket = true;
+  }
+}
+  
+void handleWebsocketBuffer()
+{
+    DynamicJsonDocument doc(JSONBUFFERSIZE);
     
-    StaticJsonDocument<256> doc;
-    DeserializationError error = deserializeJson(doc, buffer);
+    DeserializationError error = deserializeJson(doc, bufferWebsocket);
     if (error)
     {
       Serial.println(F("Failed to deserialize buffer"));
@@ -704,10 +605,10 @@ void handleWebSocketMessage(void *arg, uint8_t *data, size_t len)
     else
     {
         // write config or not
-        bool writeObjectConfig = false;
-        bool sendObjectConfig = false;
-        bool writeNetworkConfig = false;
-        bool sendNetworkConfig = false;
+        bool writeObjectConfigFlag = false;
+        bool sendObjectConfigFlag = false;
+        bool writeNetworkConfigFlag = false;
+        bool sendNetworkConfigFlag = false;
         
         // modif object config
         if (doc.containsKey("new_objectName"))
@@ -716,8 +617,8 @@ void handleWebSocketMessage(void *arg, uint8_t *data, size_t len)
                     doc["new_objectName"],
                     sizeof(aConfig.objectConfig.objectName));
   
-          writeObjectConfig = true;
-          sendObjectConfig = true;
+          writeObjectConfigFlag = true;
+          sendObjectConfigFlag = true;
         }
   
         if (doc.containsKey("new_objectId")) 
@@ -725,8 +626,8 @@ void handleWebSocketMessage(void *arg, uint8_t *data, size_t len)
           uint16_t tmpValeur = doc["new_objectId"];
           aConfig.objectConfig.objectId = checkValeur(tmpValeur,1,1000);
   
-          writeObjectConfig = true;
-          sendObjectConfig = true;
+          writeObjectConfigFlag = true;
+          sendObjectConfigFlag = true;
         }
   
         if (doc.containsKey("new_groupId")) 
@@ -734,8 +635,8 @@ void handleWebSocketMessage(void *arg, uint8_t *data, size_t len)
           uint16_t tmpValeur = doc["new_groupId"];
           aConfig.objectConfig.groupId = checkValeur(tmpValeur,1,1000);
           
-          writeObjectConfig = true;
-          sendObjectConfig = true;
+          writeObjectConfigFlag = true;
+          sendObjectConfigFlag = true;
         }
   
         if (doc.containsKey("new_activeLeds")) 
@@ -743,11 +644,11 @@ void handleWebSocketMessage(void *arg, uint8_t *data, size_t len)
           FastLED.clear(); 
           
           uint16_t tmpValeur = doc["new_activeLeds"];
-          aConfig.objectConfig.activeLeds = checkValeur(tmpValeur,1,NUM_LEDS);
+          aConfig.objectConfig.activeLeds = checkValeur(tmpValeur,1,NB_LEDS_MAX);
           uneFois=true;
           
-          writeObjectConfig = true;
-          sendObjectConfig = true;
+          writeObjectConfigFlag = true;
+          sendObjectConfigFlag = true;
         }
         
         if (doc.containsKey("new_brightness"))
@@ -757,30 +658,52 @@ void handleWebSocketMessage(void *arg, uint8_t *data, size_t len)
           FastLED.setBrightness(aConfig.objectConfig.brightness);
           uneFois=true;
           
-          writeObjectConfig = true;
-          sendObjectConfig = true;
+          writeObjectConfigFlag = true;
+          sendObjectConfigFlag = true;
+        }
+
+        if (doc.containsKey("new_intervalScintillement"))
+        {
+          uint16_t tmpValeur = doc["new_intervalScintillement"];
+          aConfig.objectConfig.intervalScintillement = checkValeur(tmpValeur,0,1000);
+          
+          writeObjectConfigFlag = true;
+          sendObjectConfigFlag = true;
+        }
+
+        if (doc.containsKey("new_scintillementOnOff"))
+        {
+          uint16_t tmpValeur = doc["new_scintillementOnOff"];
+          aConfig.objectConfig.scintillementOnOff = checkValeur(tmpValeur,0,1);
+
+          if (aConfig.objectConfig.scintillementOnOff == 0)
+          {
+            FastLED.setBrightness(aConfig.objectConfig.brightness);
+          }
+          
+          writeObjectConfigFlag = true;
+          sendObjectConfigFlag = true;
         }
 
         if (doc.containsKey("new_couleurs")) 
         {
           JsonArray newCouleur = doc["new_couleurs"];
-
+  
           uint8_t i = newCouleur[0];
-          String newColorStr = newCouleur[1];
-          
+          char newColorStr[8];
+          strncpy(newColorStr, newCouleur[1], 8);
+            
           uint8_t r;
           uint8_t g;
           uint8_t b;
-          
-          convertStrToRGB(newColorStr,&r, &g, &b);
+            
+          convertStrToRGB(newColorStr, &r, &g, &b);
           aConfig.objectConfig.couleurs[i].red=r;
           aConfig.objectConfig.couleurs[i].green=g;
           aConfig.objectConfig.couleurs[i].blue=b;
-          //convertStrToRGB(newColorStr,&aConfig.objectConfig.couleurs[i].red, &aConfig.objectConfig.couleurs[i].green, &aConfig.objectConfig.couleurs[i].blue);
-          uneFois=true;
-          
-          writeObjectConfig = true;
-          sendObjectConfig = true;
+            
+          writeObjectConfigFlag = true;
+          sendObjectConfigFlag = true;
         }
   
         if (doc.containsKey("new_nbSegments"))
@@ -788,11 +711,12 @@ void handleWebSocketMessage(void *arg, uint8_t *data, size_t len)
           uint16_t tmpValeur = doc["new_nbSegments"];
           aConfig.objectConfig.nbSegments = checkValeur(tmpValeur,0,20);
           aConfig.objectConfig.activeLeds = aConfig.objectConfig.nbSegments * aConfig.objectConfig.ledParSegment;
-          
+          aFastled.setNbLed(aConfig.objectConfig.activeLeds);
+                    
           uneFois=true;
           
-          writeObjectConfig = true;
-          sendObjectConfig = true;
+          writeObjectConfigFlag = true;
+          sendObjectConfigFlag = true;
         }
 
         if (doc.containsKey("new_ledParSegment"))
@@ -800,11 +724,12 @@ void handleWebSocketMessage(void *arg, uint8_t *data, size_t len)
           uint16_t tmpValeur = doc["new_ledParSegment"];
           aConfig.objectConfig.ledParSegment = checkValeur(tmpValeur,0,10);
           aConfig.objectConfig.activeLeds = aConfig.objectConfig.nbSegments * aConfig.objectConfig.ledParSegment;
+          aFastled.setNbLed(aConfig.objectConfig.activeLeds);
           
           uneFois=true;
           
-          writeObjectConfig = true;
-          sendObjectConfig = true;
+          writeObjectConfigFlag = true;
+          sendObjectConfigFlag = true;
         }
 
         if (doc.containsKey("new_tailleCode"))
@@ -813,8 +738,8 @@ void handleWebSocketMessage(void *arg, uint8_t *data, size_t len)
           aConfig.objectConfig.tailleCode = checkValeur(tmpValeur,1,10);
           uneFois=true;
           
-          writeObjectConfig = true;
-          sendObjectConfig = true;
+          writeObjectConfigFlag = true;
+          sendObjectConfigFlag = true;
         }
 
         if (doc.containsKey("new_code"))
@@ -826,8 +751,8 @@ void handleWebSocketMessage(void *arg, uint8_t *data, size_t len)
           
           aConfig.objectConfig.code[nouvellePosition]=nouvelleValeur;
           
-          writeObjectConfig = true;
-          sendObjectConfig = true;
+          writeObjectConfigFlag = true;
+          sendObjectConfigFlag = true;
         }
 
         if ( doc.containsKey("new_resetCode") && doc["new_resetCode"]==1 )
@@ -837,8 +762,8 @@ void handleWebSocketMessage(void *arg, uint8_t *data, size_t len)
             aConfig.objectConfig.code[i] = i;
           }
           
-          writeObjectConfig = true;
-          sendObjectConfig = true;
+          writeObjectConfigFlag = true;
+          sendObjectConfigFlag = true;
         }
 
         if ( doc.containsKey("new_aleatCode") && doc["new_aleatCode"]==1 )
@@ -856,8 +781,8 @@ void handleWebSocketMessage(void *arg, uint8_t *data, size_t len)
             aConfig.objectConfig.code[i]=indexAleat;
           }
 
-          writeObjectConfig = true;
-          sendObjectConfig = true;
+          writeObjectConfigFlag = true;
+          sendObjectConfigFlag = true;
         }
 
         if (doc.containsKey("new_timeoutReset"))
@@ -866,20 +791,30 @@ void handleWebSocketMessage(void *arg, uint8_t *data, size_t len)
           aConfig.objectConfig.timeoutReset = checkValeur(tmpValeur,1,30000);
           uneFois=true;
           
-          writeObjectConfig = true;
-          sendObjectConfig = true;
+          writeObjectConfigFlag = true;
+          sendObjectConfigFlag = true;
         }
 
-        if (doc.containsKey("new_statutSerrure"))
+        if (doc.containsKey("new_debounceTime"))
         {
-          uint16_t tmpValeur = doc["new_statutSerrure"];
-          aConfig.objectConfig.statutSerrurePrecedent=aConfig.objectConfig.statutSerrureActuel;
-          aConfig.objectConfig.statutSerrureActuel=checkValeur(tmpValeur,0,5);
-    
+          uint16_t tmpValeur = doc["new_debounceTime"];
+          aConfig.objectConfig.debounceTime = checkValeur(tmpValeur,50,1000);
+          
+          writeObjectConfigFlag = true;
+          sendObjectConfigFlag = true;
+        }
+
+        if (doc.containsKey("new_statutActuel"))
+        {
+          aConfig.objectConfig.statutPrecedent=aConfig.objectConfig.statutActuel;
+          
+          uint16_t tmpValeur = doc["new_statutActuel"];
+          aConfig.objectConfig.statutActuel=tmpValeur;
+
           uneFois=true;
           
-          writeObjectConfig = true;
-          sendObjectConfig = true;
+          writeObjectConfigFlag = true;
+          sendObjectConfigFlag = true;
         }
         
         // modif network config
@@ -892,8 +827,8 @@ void handleWebSocketMessage(void *arg, uint8_t *data, size_t len)
           // check for unsupported char
           checkCharacter(aConfig.networkConfig.apName, "ABCDEFGHIJKLMNOPQRSTUVWYZ", 'A');
           
-          writeNetworkConfig = true;
-          sendNetworkConfig = true;
+          writeNetworkConfigFlag = true;
+          sendNetworkConfigFlag = true;
         }
   
         if (doc.containsKey("new_apPassword")) 
@@ -902,7 +837,7 @@ void handleWebSocketMessage(void *arg, uint8_t *data, size_t len)
                     doc["new_apPassword"],
                     sizeof(aConfig.networkConfig.apPassword));
   
-          writeNetworkConfig = true;
+          writeNetworkConfigFlag = true;
         }
   
         if (doc.containsKey("new_apIP")) 
@@ -914,15 +849,15 @@ void handleWebSocketMessage(void *arg, uint8_t *data, size_t len)
                     sizeof(newIPchar));
   
           IPAddress newIP;
-          if (newIP.fromString(newIPchar)) 
+          if (newIP.fromString(newIPchar))
           {
             Serial.println("valid IP");
             aConfig.networkConfig.apIP = newIP;
   
-            writeNetworkConfig = true;
+            writeNetworkConfigFlag = true;
           }
           
-          sendNetworkConfig = true;
+          sendNetworkConfigFlag = true;
         }
   
         if (doc.containsKey("new_apNetMsk")) 
@@ -939,10 +874,10 @@ void handleWebSocketMessage(void *arg, uint8_t *data, size_t len)
             Serial.println("valid netmask");
             aConfig.networkConfig.apNetMsk = newNM;
   
-            writeNetworkConfig = true;
+            writeNetworkConfigFlag = true;
           }
   
-          sendNetworkConfig = true;
+          sendNetworkConfigFlag = true;
         }
         
         // actions sur le esp8266
@@ -956,8 +891,8 @@ void handleWebSocketMessage(void *arg, uint8_t *data, size_t len)
         {
           Serial.println(F("REFRESH"));
 
-          sendObjectConfig = true;
-          sendNetworkConfig = true;
+          sendObjectConfigFlag = true;
+          sendNetworkConfigFlag = true;
         }
 
         if ( doc.containsKey("new_defaultObjectConfig") && doc["new_defaultObjectConfig"]==1 )
@@ -965,7 +900,7 @@ void handleWebSocketMessage(void *arg, uint8_t *data, size_t len)
           Serial.println(F("reset to default object config"));
           aConfig.writeDefaultObjectConfig("/config/objectconfig.txt");
           
-          sendObjectConfig = true;
+          sendObjectConfigFlag = true;
           uneFois = true;
         }
 
@@ -974,52 +909,140 @@ void handleWebSocketMessage(void *arg, uint8_t *data, size_t len)
           Serial.println(F("reset to default network config"));
           aConfig.writeDefaultNetworkConfig("/config/networkconfig.txt");
           
-          sendNetworkConfig = true;
+          sendNetworkConfigFlag = true;
         }
 
-        if ( doc.containsKey("new_blink") && doc["new_blink"]==1 )
-        {
-          Serial.println(F("BLINK"));
-          blinkUneFois = true;
-          aConfig.objectConfig.statutSerrurePrecedent = aConfig.objectConfig.statutSerrureActuel;
-          aConfig.objectConfig.statutSerrureActuel = SERRURE_BLINK;
-          sendStatutSerrure();
-        }
-  
         // modif config
         // write object config
-        if (writeObjectConfig)
+        if (writeObjectConfigFlag)
         {
-          aConfig.writeObjectConfig("/config/objectconfig.txt");
-          //aConfig.printJsonFile("/config/objectconfig.txt");
+          writeObjectConfig();
+        
+          // update statut
+          uneFois = true;
         }
   
         // resend object config
-        if (sendObjectConfig)
+        if (sendObjectConfigFlag)
         {
-          ws.textAll(aConfig.stringJsonFile("/config/objectconfig.txt"));
+          sendObjectConfig();
         }
   
         // write network config
-        if (writeNetworkConfig)
+        if (writeNetworkConfigFlag)
         {
-          aConfig.writeNetworkConfig("/config/networkconfig.txt");
-          //aConfig.printJsonFile("/config/networkconfig.txt");
+          writeObjectConfig();
         }
   
         // resend network config
-        if (sendNetworkConfig)
+        if (sendNetworkConfigFlag)
         {
-          ws.textAll(aConfig.stringJsonFile("/config/networkconfig.txt"));
+          sendNetworkConfig();
         }
     }
  
     // clear json buffer
     doc.clear();
-  }
 }
 
 void notFound(AsyncWebServerRequest *request)
 {
     request->send(404, "text/plain", "Not found");
 }
+
+void convertStrToRGB(const char * source, uint8_t* r, uint8_t* g, uint8_t* b)
+{ 
+  uint32_t  number = (uint32_t) strtol( &source[1], NULL, 16);
+  
+  // Split them up into r, g, b values
+  *r = number >> 16;
+  *g = number >> 8 & 0xFF;
+  *b = number & 0xFF;
+}
+
+void sendMaxLed()
+{
+  char toSend[20];
+  snprintf(toSend, 20, "{\"maxLed\":%i}", NB_LEDS_MAX);
+  
+  ws.textAll(toSend);
+}
+
+void sendUptime()
+{
+  uint32_t now = millis() / 1000;
+  uint16_t days = now / 86400;
+  uint16_t hours = (now%86400) / 3600;
+  uint16_t minutes = (now%3600) / 60;
+  uint16_t seconds = now % 60;
+    
+  char toSend[100];
+  snprintf(toSend, 100, "{\"uptime\":\"%id %ih %im %is\"}", days, hours, minutes, seconds);
+
+  ws.textAll(toSend);
+}
+
+void sendStatut()
+{
+  char toSend[100];
+  snprintf(toSend, 100, "{\"statutActuel\":%i}", aConfig.objectConfig.statutActuel); 
+
+  ws.textAll(toSend);
+}
+
+void sendObjectConfig()
+{
+  aConfig.stringJsonFile("/config/objectconfig.txt", bufferToSend, BUFFERSENDSIZE);
+  ws.textAll(bufferToSend);
+}
+
+void writeObjectConfig()
+{
+  aConfig.writeObjectConfig("/config/objectconfig.txt");
+}
+
+void sendNetworkConfig()
+{
+  aConfig.stringJsonFile("/config/networkconfig.txt", bufferToSend, BUFFERSENDSIZE);
+  ws.textAll(bufferToSend);
+}
+
+void writeNetworkConfig()
+{
+  aConfig.writeNetworkConfig("/config/networkconfig.txt");
+}
+
+void controlBrightness()
+{
+  if (aConfig.objectConfig.scintillementOnOff)
+  {
+    if(millis() - previousMillisBrightness > aConfig.objectConfig.intervalScintillement)
+    {
+      previousMillisBrightness = millis();
+  
+      if (increaseBrightness)
+      {
+        indexBrightness+=1;
+        if (indexBrightness>=250)
+        {
+          increaseBrightness=false;
+        }
+      }
+      else
+      {
+        indexBrightness-=1;
+        if (indexBrightness<5)
+        {
+          increaseBrightness=true;
+        }
+      }
+      aFastled.setBrightness(map(indexBrightness,5,250,5,aConfig.objectConfig.brightness));
+      aFastled.ledShow();
+    }
+  }
+}
+/*
+   ----------------------------------------------------------------------------
+   FIN DES FONCTIONS ADDITIONNELLES
+   ----------------------------------------------------------------------------
+*/

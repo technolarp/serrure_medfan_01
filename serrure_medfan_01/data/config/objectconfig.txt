@@ -12,5 +12,6 @@
 	"indexCode": 0,
 	"statutSerrureActuel": 1,
 	"statutSerrurePrecedent": 1,
-	"timeoutReset": 5000
+	"timeoutReset": 5000,
+	"debounceTime": 300
 }
