@@ -94,10 +94,15 @@
       document.getElementById("brightness2").innerHTML = obj.brightness;
     }
 	
-	if (obj.hasOwnProperty('intervalBrightness'))
+	if (obj.hasOwnProperty('intervalScintillement'))
     {
-      document.getElementById("intervalBrightness").value = obj.intervalBrightness;
-      document.getElementById("intervalBrightness2").innerHTML = obj.intervalBrightness;
+      document.getElementById("intervalScintillement").value = obj.intervalScintillement;
+      document.getElementById("intervalScintillement2").innerHTML = obj.intervalScintillement;
+    }
+	
+	if (obj.hasOwnProperty('scintillementOnOff'))
+    {
+      document.getElementById("scintillementOnOff").value = obj.scintillementOnOff;
     }
 	
 	if (obj.hasOwnProperty('couleurs'))
@@ -169,6 +174,7 @@
 			document.getElementById(labelcode).value = '-';
 		}
 	  }
+	  checkCode();
     }
 	
 	if (obj.hasOwnProperty('statutActuel'))
@@ -247,7 +253,43 @@
     }
   }
   
+  function updateScintillement()
+  {
+	if (document.getElementById("scintillementOnOff").value == 0)
+	{
+		document.getElementById("intervalScintillement").disabled = true;
+	}
+	else
+	{
+		document.getElementById("intervalScintillement").disabled = false;
+	}
+  }
   
+  function checkCode()
+  {
+	var checkValue = new Uint8Array([0,0,0,0,0,0,0,0,0,0]);
+	
+	for (let i = 0; i < document.getElementById("tailleCode").value ; i++)
+	{
+		labelcode="code" + i;
+		checkValue[document.getElementById(labelcode).value]++;
+	}
+	
+	for (let i = 0; i < document.getElementById("tailleCode").value ; i++)
+	{
+		if (checkValue[i]>1)
+		{
+			for (let j = 0; j < document.getElementById("tailleCode").value ; j++)
+			{
+				labelcode="code" + j;
+				if (document.getElementById(labelcode).value==i)
+				{
+					document.getElementById(labelcode).style.backgroundColor = '#ff3333';
+				}
+			}
+		}
+	}
+  }
   
   </script>  
 	<body>
@@ -281,11 +323,15 @@
     </tr>
     <tr>
       <td>Brightness : <span id="brightness2"></span></td>
-      <td><input class="enabled" id="brightness" name="brightness" type="range" min="0" max="255" step="5" onChange="sendNewValue('brightness',document.getElementById('brightness').value, false);"></td>
+	  <td><input class="enabled" id="brightness" name="brightness" type="range" min="0" max="255" step="5" onChange="sendNewValue('brightness',document.getElementById('brightness').value, false);"></td>
     </tr>
 	<tr>
-      <td>Interval Brightness : <span id="intervalBrightness2"></span></td>
-      <td><input class="enabled" id="intervalBrightness" name="intervalBrightness" type="range" min="0" max="50" step="1" onChange="sendNewValue('intervalBrightness',this.value, false);"></td>
+      <td>Scintillement : <span id="intervalScintillement2"></span></td>
+		<td>
+			OFF <input class="enabled" id="scintillementOnOff" name="scintillementOnOff" type="range" style="width:30px;" min="0" max="1" step="1" onChange="sendNewValue('scintillementOnOff',this.value, false); updateScintillement();"> ON
+			<br>
+			<input class="enabled" id="intervalScintillement" name="intervalScintillement" type="range" min="0" max="100" step="1" onChange="sendNewValue('intervalScintillement',this.value, false);">
+		</td>
     </tr>
 	<tr>
       <td>Couleur fermee</td>

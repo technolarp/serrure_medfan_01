@@ -29,13 +29,6 @@
    ----------------------------------------------------------------------------
 */
 
-/*
- * TODO
-move lastDebounceTime reed dans mcp
-rename scintillment
-add scintillment on / off
-*/
-
 #include <Arduino.h>
 
 // WIFI
@@ -80,7 +73,7 @@ uint32_t previousMillisReset;
 bool checkTimeoutFlag = false;
 
 uint32_t previousMillisBrightness;
-uint32_t intervalBrightness;
+uint32_t intervalScintillement;
 bool increaseBrightness = true;
 uint8_t indexBrightness = 0;
 
@@ -153,7 +146,7 @@ void setup()
   Serial.println(F(""));
   Serial.println(F("connecting WiFi"));
   
-  /*
+  
   // AP MODE
   WiFi.mode(WIFI_AP_STA);
   WiFi.softAPConfig(aConfig.networkConfig.apIP, aConfig.networkConfig.apIP, aConfig.networkConfig.apNetMsk);
@@ -172,7 +165,7 @@ void setup()
   Serial.print(F("softAPIP: "));
   Serial.println(WiFi.softAPIP());
   
-  */
+  /*
   // CLIENT MODE POUR DEBUG
   const char* ssid = "MYDEBUG";
   const char* password = "3V8WtBvJ";
@@ -187,7 +180,7 @@ void setup()
   {
     Serial.println(F("WiFi OK"));
   }
-  /**/
+  */
   
   // Print ESP Local IP Address
   Serial.print(F("localIP: "));
@@ -214,7 +207,7 @@ void setup()
   previousMillisReset = millis();
 
   previousMillisBrightness = millis();
-  intervalBrightness = 200;
+  intervalScintillement = 200;
   
   // HEARTBEAT
   previousMillisHB = millis();
@@ -344,7 +337,7 @@ void serrureOuverture()
 
     aConfig.objectConfig.indexCode=0;
 
-    aFastled.animationBlink02Start(75, 1500, aConfig.objectConfig.couleurs[2], CRGB::Black);
+    aFastled.animationBlink02Start(75, 1550, aConfig.objectConfig.couleurs[2], CRGB::Black);
   }
 
   // fin de l'animation blink
@@ -389,7 +382,7 @@ void serrureBlink()
 }
 
 void checkReed()
-{  
+{
   int16_t lastPin=-1;
   
   for (uint8_t i=0;i<aConfig.objectConfig.nbSegments;i++)
@@ -669,6 +662,29 @@ void handleWebsocketBuffer()
           sendObjectConfigFlag = true;
         }
 
+        if (doc.containsKey("new_intervalScintillement"))
+        {
+          uint16_t tmpValeur = doc["new_intervalScintillement"];
+          aConfig.objectConfig.intervalScintillement = checkValeur(tmpValeur,0,1000);
+          
+          writeObjectConfigFlag = true;
+          sendObjectConfigFlag = true;
+        }
+
+        if (doc.containsKey("new_scintillementOnOff"))
+        {
+          uint16_t tmpValeur = doc["new_scintillementOnOff"];
+          aConfig.objectConfig.scintillementOnOff = checkValeur(tmpValeur,0,1);
+
+          if (aConfig.objectConfig.scintillementOnOff == 0)
+          {
+            FastLED.setBrightness(aConfig.objectConfig.brightness);
+          }
+          
+          writeObjectConfigFlag = true;
+          sendObjectConfigFlag = true;
+        }
+
         if (doc.containsKey("new_couleurs")) 
         {
           JsonArray newCouleur = doc["new_couleurs"];
@@ -695,7 +711,8 @@ void handleWebsocketBuffer()
           uint16_t tmpValeur = doc["new_nbSegments"];
           aConfig.objectConfig.nbSegments = checkValeur(tmpValeur,0,20);
           aConfig.objectConfig.activeLeds = aConfig.objectConfig.nbSegments * aConfig.objectConfig.ledParSegment;
-          
+          aFastled.setNbLed(aConfig.objectConfig.activeLeds);
+                    
           uneFois=true;
           
           writeObjectConfigFlag = true;
@@ -707,6 +724,7 @@ void handleWebsocketBuffer()
           uint16_t tmpValeur = doc["new_ledParSegment"];
           aConfig.objectConfig.ledParSegment = checkValeur(tmpValeur,0,10);
           aConfig.objectConfig.activeLeds = aConfig.objectConfig.nbSegments * aConfig.objectConfig.ledParSegment;
+          aFastled.setNbLed(aConfig.objectConfig.activeLeds);
           
           uneFois=true;
           
@@ -781,15 +799,6 @@ void handleWebsocketBuffer()
         {
           uint16_t tmpValeur = doc["new_debounceTime"];
           aConfig.objectConfig.debounceTime = checkValeur(tmpValeur,50,1000);
-          
-          writeObjectConfigFlag = true;
-          sendObjectConfigFlag = true;
-        }
-
-        if (doc.containsKey("new_intervalBrightness"))
-        {
-          uint16_t tmpValeur = doc["new_intervalBrightness"];
-          aConfig.objectConfig.intervalBrightness = checkValeur(tmpValeur,0,1000);
           
           writeObjectConfigFlag = true;
           sendObjectConfigFlag = true;
@@ -1005,30 +1014,32 @@ void writeNetworkConfig()
 
 void controlBrightness()
 {
-  if(millis() - previousMillisBrightness > aConfig.objectConfig.intervalBrightness)
+  if (aConfig.objectConfig.scintillementOnOff)
   {
-    previousMillisBrightness = millis();
-
-    if (increaseBrightness)
+    if(millis() - previousMillisBrightness > aConfig.objectConfig.intervalScintillement)
     {
-      indexBrightness+=1;
-      if (indexBrightness>=250)
-      {
-        increaseBrightness=false;
-      }
-    }
-    else
-    {
-      indexBrightness-=1;
-      if (indexBrightness<5)
-      {
-        increaseBrightness=true;
-      }
-    }
-    aFastled.setBrightness(map(indexBrightness,5,250,5,aConfig.objectConfig.brightness));
-    aFastled.ledShow();
-  }
+      previousMillisBrightness = millis();
   
+      if (increaseBrightness)
+      {
+        indexBrightness+=1;
+        if (indexBrightness>=250)
+        {
+          increaseBrightness=false;
+        }
+      }
+      else
+      {
+        indexBrightness-=1;
+        if (indexBrightness<5)
+        {
+          increaseBrightness=true;
+        }
+      }
+      aFastled.setBrightness(map(indexBrightness,5,250,5,aConfig.objectConfig.brightness));
+      aFastled.ledShow();
+    }
+  }
 }
 /*
    ----------------------------------------------------------------------------

@@ -23,7 +23,8 @@ class M_config
     
     uint8_t activeLeds;
     uint8_t brightness;
-    uint16_t intervalBrightness;
+    uint16_t intervalScintillement;
+    uint16_t scintillementOnOff;
     uint8_t nbSegments;
     uint8_t ledParSegment;
     
@@ -86,11 +87,12 @@ class M_config
       objectConfig.objectId = doc["objectId"];
       objectConfig.groupId = doc["groupId"];
       
-      objectConfig.activeLeds = doc["activeLeds"];
       objectConfig.brightness = doc["brightness"];
-      objectConfig.intervalBrightness = doc["intervalBrightness"];      
+      objectConfig.intervalScintillement = doc["intervalScintillement"];
+      objectConfig.scintillementOnOff = doc["scintillementOnOff"];
       objectConfig.nbSegments = doc["nbSegments"];      
       objectConfig.ledParSegment = doc["ledParSegment"];
+      objectConfig.activeLeds = objectConfig.nbSegments * objectConfig.ledParSegment;
       
       objectConfig.statutActuel = doc["statutActuel"];
       objectConfig.statutPrecedent = doc["statutPrecedent"];
@@ -158,9 +160,10 @@ class M_config
     doc["objectId"] = objectConfig.objectId;
     doc["groupId"] = objectConfig.groupId;
     
-    doc["activeLeds"] = objectConfig.activeLeds;
+    doc["activeLeds"] = objectConfig.ledParSegment*objectConfig.nbSegments;
     doc["brightness"] = objectConfig.brightness;
-    doc["intervalBrightness"] = objectConfig.intervalBrightness;
+    doc["intervalScintillement"] = objectConfig.intervalScintillement;
+    doc["scintillementOnOff"] = objectConfig.scintillementOnOff;
     doc["ledParSegment"] = objectConfig.ledParSegment;
     doc["nbSegments"] = objectConfig.nbSegments;
     
@@ -207,7 +210,8 @@ class M_config
 
     objectConfig.activeLeds = 8;
     objectConfig.brightness = 80;
-    objectConfig.intervalBrightness = 50;
+    objectConfig.intervalScintillement = 50;
+    objectConfig.scintillementOnOff = 0;
     objectConfig.nbSegments = 4;
     objectConfig.ledParSegment = 2; 
        
