@@ -1,7 +1,7 @@
 #include <LittleFS.h>
 #include <ArduinoJson.h> // arduino json v6  // https://github.com/bblanchon/ArduinoJson
 
-// to upload config dile : https://github.com/earlephilhower/arduino-esp8266littlefs-plugin/releases
+// to upload config file : https://github.com/earlephilhower/arduino-esp8266littlefs-plugin/releases
 #define SIZE_ARRAY 20
 #define NB_COULEURS 3
 #define MAX_SIZE_CODE 10
@@ -236,7 +236,7 @@ class M_config
     objectConfig.couleurs[2].blue =  0;
     
     strlcpy( objectConfig.objectName,
-             "serrure_magique",
+             "serrure_magique_1",
              SIZE_ARRAY);
     
     for (uint8_t i=0;i<MAX_SIZE_CODE;i++)
@@ -295,14 +295,14 @@ class M_config
       { 
         strlcpy(  networkConfig.apName,
                   doc["apName"],
-                  sizeof(networkConfig.apName));
+                  SIZE_ARRAY);
       }
 
       if (doc.containsKey("apPassword"))
       { 
         strlcpy(  networkConfig.apPassword,
                   doc["apPassword"],
-                  sizeof(networkConfig.apPassword));
+                  SIZE_ARRAY);
       }
     }
       
@@ -359,12 +359,12 @@ class M_config
   void writeDefaultNetworkConfig(const char * filename)
   {
   strlcpy(  networkConfig.apName,
-            "BOMBE",
-            sizeof("BOMBE"));
+            "SERRURE_MAGIQUE_1",
+            SIZE_ARRAY);
   
   strlcpy(  networkConfig.apPassword,
             "",
-            sizeof(""));
+            SIZE_ARRAY);
 
   networkConfig.apIP[0]=192;
   networkConfig.apIP[1]=168;

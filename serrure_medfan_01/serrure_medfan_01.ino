@@ -29,6 +29,16 @@
    ----------------------------------------------------------------------------
 */
 
+/*
+TODO version 1.1
+
+ajouter du son
+ajouter une commande d'actionneur
+
+re-verouiller apres X secondes
+scintillement tournant
+*/
+
 #include <Arduino.h>
 
 // WIFI
@@ -70,10 +80,10 @@ enum {
 bool uneFois = true;
 
 uint32_t previousMillisReset;
+uint32_t previousMillisBrightness;
+
 bool checkTimeoutFlag = false;
 
-uint32_t previousMillisBrightness;
-uint32_t intervalScintillement;
 bool increaseBrightness = true;
 uint8_t indexBrightness = 0;
 
@@ -146,7 +156,7 @@ void setup()
   Serial.println(F(""));
   Serial.println(F("connecting WiFi"));
   
-  
+  /**/
   // AP MODE
   WiFi.mode(WIFI_AP_STA);
   WiFi.softAPConfig(aConfig.networkConfig.apIP, aConfig.networkConfig.apIP, aConfig.networkConfig.apNetMsk);
@@ -167,8 +177,8 @@ void setup()
   
   /*
   // CLIENT MODE POUR DEBUG
-  const char* ssid = "MYDEBUG";
-  const char* password = "3V8WtBvJ";
+  const char* ssid = "SID";
+  const char* password = "PASSWORD";
   WiFi.mode(WIFI_STA);
   WiFi.begin(ssid, password);
   
@@ -180,11 +190,11 @@ void setup()
   {
     Serial.println(F("WiFi OK"));
   }
-  */
-  
+    
   // Print ESP Local IP Address
   Serial.print(F("localIP: "));
   Serial.println(WiFi.localIP());
+  */
   
   // WEB SERVER
   // Route for root / web page
@@ -205,9 +215,7 @@ void setup()
 
   // RESET TIMEOUT
   previousMillisReset = millis();
-
   previousMillisBrightness = millis();
-  intervalScintillement = 200;
   
   // HEARTBEAT
   previousMillisHB = millis();
@@ -240,11 +248,6 @@ void loop()
 
   // CONTROL BRIGHTNESS
   controlBrightness();
-
-  
-  
-  
-uint8_t indexBrightness = 0;
 
   // gerer le statut de la serrure
   switch (aConfig.objectConfig.statutActuel)
@@ -424,7 +427,6 @@ void checkReed()
     else
     {
       aConfig.objectConfig.indexCode=0;
-      //Serial.println("wrong");
 
       for (uint8_t i=0;i<aConfig.objectConfig.nbSegments;i++)
       {
@@ -514,7 +516,7 @@ void showSparklePixel(uint8_t led)
 }
 
 // index of max value in an array
-int indexMaxValeur(uint8_t arraySize, uint8_t arrayToSearch[])
+uint8_t indexMaxValeur(uint8_t arraySize, uint8_t arrayToSearch[])
 {
   uint8_t indexMax=0;
   uint8_t currentMax=0;
@@ -533,7 +535,7 @@ int indexMaxValeur(uint8_t arraySize, uint8_t arrayToSearch[])
 
 void checkCharacter(char* toCheck, char* allowed, char replaceChar)
 {
-  for (int i = 0; i < strlen(toCheck); i++)
+  for (uint8_t i = 0; i < strlen(toCheck); i++)
   {
     if (!strchr(allowed, toCheck[i]))
     {
@@ -709,9 +711,10 @@ void handleWebsocketBuffer()
         if (doc.containsKey("new_nbSegments"))
         {
           uint16_t tmpValeur = doc["new_nbSegments"];
-          aConfig.objectConfig.nbSegments = checkValeur(tmpValeur,0,20);
+          aConfig.objectConfig.nbSegments = checkValeur(tmpValeur,1,10);
           aConfig.objectConfig.activeLeds = aConfig.objectConfig.nbSegments * aConfig.objectConfig.ledParSegment;
           aFastled.setNbLed(aConfig.objectConfig.activeLeds);
+          aFastled.allLedOff(false);
                     
           uneFois=true;
           
@@ -722,9 +725,10 @@ void handleWebsocketBuffer()
         if (doc.containsKey("new_ledParSegment"))
         {
           uint16_t tmpValeur = doc["new_ledParSegment"];
-          aConfig.objectConfig.ledParSegment = checkValeur(tmpValeur,0,10);
+          aConfig.objectConfig.ledParSegment = checkValeur(tmpValeur,1,5);
           aConfig.objectConfig.activeLeds = aConfig.objectConfig.nbSegments * aConfig.objectConfig.ledParSegment;
           aFastled.setNbLed(aConfig.objectConfig.activeLeds);
+          aFastled.allLedOff(false);
           
           uneFois=true;
           
