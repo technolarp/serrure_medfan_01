@@ -1,11 +1,11 @@
 #include <LittleFS.h>
 #include <ArduinoJson.h> // arduino json v6  // https://github.com/bblanchon/ArduinoJson
 
-// to upload config dile : https://github.com/earlephilhower/arduino-esp8266littlefs-plugin/releases
-#define SIZE_ARRAY 20
+// to upload config file : https://github.com/earlephilhower/arduino-esp8266littlefs-plugin/releases
+#define SIZE_ARRAY 21
 #define NB_COULEURS 3
 #define MAX_SIZE_CODE 10
-#define JSONBUFFERSIZE 1024
+#define JSONBUFFERSIZE 2048
 
 #include <IPAddress.h>
 #include <FastLED.h>
@@ -236,7 +236,7 @@ class M_config
     objectConfig.couleurs[2].blue =  0;
     
     strlcpy( objectConfig.objectName,
-             "serrure_magique",
+             "serrure_magique_1",
              SIZE_ARRAY);
     
     for (uint8_t i=0;i<MAX_SIZE_CODE;i++)
@@ -295,14 +295,14 @@ class M_config
       { 
         strlcpy(  networkConfig.apName,
                   doc["apName"],
-                  sizeof(networkConfig.apName));
+                  SIZE_ARRAY);
       }
 
       if (doc.containsKey("apPassword"))
       { 
         strlcpy(  networkConfig.apPassword,
                   doc["apPassword"],
-                  sizeof(networkConfig.apPassword));
+                  SIZE_ARRAY);
       }
     }
       
@@ -358,27 +358,27 @@ class M_config
   
   void writeDefaultNetworkConfig(const char * filename)
   {
-  strlcpy(  networkConfig.apName,
-            "BOMBE",
-            sizeof("BOMBE"));
-  
-  strlcpy(  networkConfig.apPassword,
-            "",
-            sizeof(""));
-
-  networkConfig.apIP[0]=192;
-  networkConfig.apIP[1]=168;
-  networkConfig.apIP[2]=1;
-  networkConfig.apIP[3]=1;
-
-  networkConfig.apNetMsk[0]=255;
-  networkConfig.apNetMsk[1]=255;
-  networkConfig.apNetMsk[2]=255;
-  networkConfig.apNetMsk[3]=0;
+    strlcpy(  networkConfig.apName,
+              "SERRURE_MAGIQUE_1",
+              SIZE_ARRAY);
     
-  writeNetworkConfig(filename);
+    strlcpy(  networkConfig.apPassword,
+              "",
+              SIZE_ARRAY);
+  
+    networkConfig.apIP[0]=192;
+    networkConfig.apIP[1]=168;
+    networkConfig.apIP[2]=1;
+    networkConfig.apIP[3]=1;
+  
+    networkConfig.apNetMsk[0]=255;
+    networkConfig.apNetMsk[1]=255;
+    networkConfig.apNetMsk[2]=255;
+    networkConfig.apNetMsk[3]=0;
+      
+    writeNetworkConfig(filename);
   }
-
+  
   void stringJsonFile(const char * filename, char * target, uint16_t targetReadSize)
   {
     // Open file for reading

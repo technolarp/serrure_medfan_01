@@ -131,6 +131,13 @@
       document.getElementById("nbSegments").value = obj.nbSegments;
 	  document.getElementById("activeLeds").innerHTML = obj.nbSegments * document.getElementById("ledParSegment").value;
 	  
+	  document.getElementById("tailleCode2").innerHTML = obj.nbSegments;
+	  document.getElementById("tailleCode").max = obj.nbSegments;
+	  
+	  if ( obj.nbSegments < document.getElementById("tailleCode").value)
+	  {
+		sendNewValue('tailleCode',obj.nbSegments, false);
+	  }
     }
 	
 	if (obj.hasOwnProperty('ledParSegment'))
@@ -148,13 +155,14 @@
 		if (i<obj.tailleCode)
 		{
 			document.getElementById(labelcode).disabled = false;
+			document.getElementById(labelcode).style.backgroundColor='#ffffff';
 		}
 		else
 		{
 			document.getElementById(labelcode).disabled = true;
+			document.getElementById(labelcode).style.backgroundColor='#dddddd';
 		}
-		document.getElementById(labelcode).style.background='#ffffff';
-	  }	  
+	  }
 	  
 	  document.getElementById("tailleCode").value = obj.tailleCode;
     }
@@ -311,11 +319,11 @@
     </tr>
     <tr>
       <td>nbSegments </td>
-      <td><input type="number" id="nbSegments" name="nbSegments" min="1" max="1000" style="text-align: center;width:70px;" onchange="sendNewValue('nbSegments',this.value, false);"> &nbsp; &nbsp; &nbsp; &nbsp; 1 - 20</td>
+      <td><input type="number" id="nbSegments" name="nbSegments" min="1" max="10" style="text-align: center;width:70px;" onchange="sendNewValue('nbSegments',this.value, false);"> &nbsp; &nbsp; &nbsp; &nbsp; 1 - 10</td>
     </tr>
 	<tr>
       <td>ledParSegment </td>
-      <td><input type="number" id="ledParSegment" name="ledParSegment" min="1" max="1000" style="text-align: center;width:70px;" onchange="sendNewValue('ledParSegment',this.value, false);"> &nbsp; &nbsp; &nbsp; &nbsp; 1 - 10</td>
+      <td><input type="number" id="ledParSegment" name="ledParSegment" min="1" max="5" style="text-align: center;width:70px;" onchange="sendNewValue('ledParSegment',this.value, false);"> &nbsp; &nbsp; &nbsp; &nbsp; 1 - 5</td>
     </tr>
     <tr>
       <td>ActiveLeds </td>
@@ -352,7 +360,7 @@
 	<tr>
       <td>Taille Code</td>
       <td>
-		<input type="number" id="tailleCode" name="tailleCode" style="text-align: center; width:35px;" min="1" max="10" step="1" onchange="sendNewValue('tailleCode',this.value, false);">&nbsp; &nbsp; &nbsp; &nbsp; 1 - 10 &nbsp;
+		<input type="number" id="tailleCode" name="tailleCode" style="text-align: center; width:35px;" min="1" max="10" step="1" onchange="sendNewValue('tailleCode',this.value, false);">&nbsp; &nbsp; &nbsp; &nbsp; 1 - <span id="tailleCode2"></span> &nbsp;
 		<button onclick="sendNewValue('resetCode',1, false);">reset code</button>
 		<button onclick="sendNewValue('aleatCode',1, false);">aléatoire</button>	  
 	  </td>
@@ -386,7 +394,7 @@
     </tr>
 	<tr>
       <td>Debounce Time</td>
-      <td><input type="number" id="debounceTime" name="debounceTime" min="50" max="1000" step="50" onchange="sendNewValue('debounceTime',this.value, false);">&nbsp; &nbsp; &nbsp; &nbsp; 50 - 1000 s</td>
+      <td><input type="number" id="debounceTime" name="debounceTime" min="50" max="1000" step="50" onchange="sendNewValue('debounceTime',this.value, false);">&nbsp; &nbsp; &nbsp; &nbsp; 50 - 1000 ms</td>
     </tr>
 	</table>
 	<table width=600>
