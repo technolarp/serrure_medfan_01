@@ -84,9 +84,6 @@ uint32_t previousMillisBrightness;
 
 bool checkTimeoutFlag = false;
 
-bool increaseBrightness = true;
-uint8_t indexBrightness = 0;
-
 uint32_t lastDebounceTime[16] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
 uint8_t lastPinState[16] = {HIGH, HIGH, HIGH, HIGH, HIGH, HIGH, HIGH, HIGH,HIGH, HIGH, HIGH, HIGH, HIGH, HIGH, HIGH, HIGH};
 uint8_t pinState[16] = {HIGH, HIGH, HIGH, HIGH, HIGH, HIGH, HIGH, HIGH,HIGH, HIGH, HIGH, HIGH, HIGH, HIGH, HIGH, HIGH};
@@ -240,6 +237,9 @@ void setup()
 */
 void loop() 
 {
+  // AVOID WATCHDOG
+  yield();
+
   // WEBSOCKET
   ws.cleanupClients();
 
@@ -247,7 +247,7 @@ void loop()
   aFastled.updateAnimation();
 
   // CONTROL BRIGHTNESS
-  controlBrightness();
+  aFastled.controlBrightness(aConfig.objectConfig.brightness);
 
   // gerer le statut de la serrure
   switch (aConfig.objectConfig.statutActuel)
@@ -612,7 +612,9 @@ void handleWebsocketBuffer()
         bool writeNetworkConfigFlag = false;
         bool sendNetworkConfigFlag = false;
         
+        // **********************************************
         // modif object config
+        // **********************************************
         if (doc.containsKey("new_objectName"))
         {
           strlcpy(  aConfig.objectConfig.objectName,
@@ -668,16 +670,18 @@ void handleWebsocketBuffer()
         {
           uint16_t tmpValeur = doc["new_intervalScintillement"];
           aConfig.objectConfig.intervalScintillement = checkValeur(tmpValeur,0,1000);
+          aFastled.setIntervalControlBrightness(aConfig.objectConfig.intervalScintillement);
           
           writeObjectConfigFlag = true;
           sendObjectConfigFlag = true;
         }
-
+        
         if (doc.containsKey("new_scintillementOnOff"))
         {
           uint16_t tmpValeur = doc["new_scintillementOnOff"];
           aConfig.objectConfig.scintillementOnOff = checkValeur(tmpValeur,0,1);
-
+          aFastled.setControlBrightness(aConfig.objectConfig.scintillementOnOff);
+          
           if (aConfig.objectConfig.scintillementOnOff == 0)
           {
             FastLED.setBrightness(aConfig.objectConfig.brightness);
@@ -821,66 +825,69 @@ void handleWebsocketBuffer()
           sendObjectConfigFlag = true;
         }
         
+        // **********************************************
         // modif network config
+        // **********************************************
         if (doc.containsKey("new_apName")) 
         {
           strlcpy(  aConfig.networkConfig.apName,
                     doc["new_apName"],
                     sizeof(aConfig.networkConfig.apName));
-  
+        
           // check for unsupported char
-          checkCharacter(aConfig.networkConfig.apName, "ABCDEFGHIJKLMNOPQRSTUVWYZ", 'A');
+          checkCharacter(aConfig.networkConfig.apName, "ABCDEFGHIJKLMNOPQRSTUVWYXZ0123456789_-", 'A');
           
           writeNetworkConfigFlag = true;
           sendNetworkConfigFlag = true;
         }
-  
+        
         if (doc.containsKey("new_apPassword")) 
         {
           strlcpy(  aConfig.networkConfig.apPassword,
                     doc["new_apPassword"],
                     sizeof(aConfig.networkConfig.apPassword));
-  
+        
           writeNetworkConfigFlag = true;
+          sendNetworkConfigFlag = true;
         }
-  
+        
         if (doc.containsKey("new_apIP")) 
         {
           char newIPchar[16] = "";
-  
+        
           strlcpy(  newIPchar,
                     doc["new_apIP"],
                     sizeof(newIPchar));
-  
+        
           IPAddress newIP;
           if (newIP.fromString(newIPchar))
           {
             Serial.println("valid IP");
             aConfig.networkConfig.apIP = newIP;
-  
+        
             writeNetworkConfigFlag = true;
           }
           
           sendNetworkConfigFlag = true;
         }
-  
+        
         if (doc.containsKey("new_apNetMsk")) 
         {
           char newNMchar[16] = "";
-  
+        
           strlcpy(  newNMchar,
                     doc["new_apNetMsk"],
                     sizeof(newNMchar));
-  
+        
           IPAddress newNM;
           if (newNM.fromString(newNMchar)) 
           {
             Serial.println("valid netmask");
             aConfig.networkConfig.apNetMsk = newNM;
-  
+        
             writeNetworkConfigFlag = true;
           }
-  
+        
           sendNetworkConfigFlag = true;
         }
         
@@ -890,32 +897,37 @@ void handleWebsocketBuffer()
           Serial.println(F("RESTART RESTART RESTART"));
           ESP.restart();
         }
-  
+        
         if ( doc.containsKey("new_refresh") && doc["new_refresh"]==1 )
         {
           Serial.println(F("REFRESH"));
-
+        
           sendObjectConfigFlag = true;
           sendNetworkConfigFlag = true;
         }
-
+        
         if ( doc.containsKey("new_defaultObjectConfig") && doc["new_defaultObjectConfig"]==1 )
         {
-          Serial.println(F("reset to default object config"));
           aConfig.writeDefaultObjectConfig("/config/objectconfig.txt");
+          Serial.println(F("reset to default object config"));
+        
+          aFastled.allLedOff();
+          aFastled.setNbLed(aConfig.objectConfig.activeLeds);          
+          aFastled.setControlBrightness(aConfig.objectConfig.scintillementOnOff);
+          aFastled.setIntervalControlBrightness(aConfig.objectConfig.intervalScintillement);
           
           sendObjectConfigFlag = true;
           uneFois = true;
         }
-
+        
         if ( doc.containsKey("new_defaultNetworkConfig") && doc["new_defaultNetworkConfig"]==1 )
         {
-          Serial.println(F("reset to default network config"));
           aConfig.writeDefaultNetworkConfig("/config/networkconfig.txt");
+          Serial.println(F("reset to default network config"));          
           
           sendNetworkConfigFlag = true;
         }
-
+        
         // modif config
         // write object config
         if (writeObjectConfigFlag)
@@ -925,19 +937,19 @@ void handleWebsocketBuffer()
           // update statut
           uneFois = true;
         }
-  
+        
         // resend object config
         if (sendObjectConfigFlag)
         {
           sendObjectConfig();
         }
-  
+        
         // write network config
         if (writeNetworkConfigFlag)
         {
-          writeObjectConfig();
+          writeNetworkConfig();
         }
-  
+        
         // resend network config
         if (sendNetworkConfigFlag)
         {
@@ -1014,36 +1026,6 @@ void sendNetworkConfig()
 void writeNetworkConfig()
 {
   aConfig.writeNetworkConfig("/config/networkconfig.txt");
-}
-
-void controlBrightness()
-{
-  if (aConfig.objectConfig.scintillementOnOff)
-  {
-    if(millis() - previousMillisBrightness > aConfig.objectConfig.intervalScintillement)
-    {
-      previousMillisBrightness = millis();
-  
-      if (increaseBrightness)
-      {
-        indexBrightness+=1;
-        if (indexBrightness>=250)
-        {
-          increaseBrightness=false;
-        }
-      }
-      else
-      {
-        indexBrightness-=1;
-        if (indexBrightness<5)
-        {
-          increaseBrightness=true;
-        }
-      }
-      aFastled.setBrightness(map(indexBrightness,5,250,5,aConfig.objectConfig.brightness));
-      aFastled.ledShow();
-    }
-  }
 }
 /*
    ----------------------------------------------------------------------------
