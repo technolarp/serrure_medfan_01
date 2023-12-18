@@ -644,7 +644,10 @@ void handleWebsocketBuffer()
           strlcpy(  aConfig.objectConfig.objectName,
                     doc["new_objectName"],
                     sizeof(aConfig.objectConfig.objectName));
-  
+
+          char const * listeCheck = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789 _-";
+          checkCharacter(aConfig.objectConfig.objectName, listeCheck, '_');
+
           writeObjectConfigFlag = true;
           sendObjectConfigFlag = true;
         }
@@ -859,7 +862,7 @@ void handleWebsocketBuffer()
                     sizeof(aConfig.networkConfig.apName));
         
           // check for unsupported char
-          const char listeCheck[] = "ABCDEFGHIJKLMNOPQRSTUVWYXZ0123456789_-";
+          char const * listeCheck = "ABCDEFGHIJKLMNOPQRSTUVWYXZ0123456789_-";
           checkCharacter(aConfig.networkConfig.apName, listeCheck, 'A');
           
           writeNetworkConfigFlag = true;
