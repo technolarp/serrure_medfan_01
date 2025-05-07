@@ -2,7 +2,7 @@
    ----------------------------------------------------------------------------
    TECHNOLARP - https://technolarp.github.io/
    SERRURE MEDFAN 01 - https://github.com/technolarp/serrure_medfan_01
-   version 1.1.0 - 12/2023
+   version 1.1.0 - 05/2025
    ----------------------------------------------------------------------------
 */
 
@@ -135,7 +135,7 @@ void setup()
   Serial.println(F("----------------------------------------------------------------------------"));
   Serial.println(F("TECHNOLARP - https://technolarp.github.io/"));
   Serial.println(F("SERRURE MEDFAN 01 - https://github.com/technolarp/serrure_mefan_01"));
-  Serial.println(F("version 1.1.0 - 12/2023"));
+  Serial.println(F("version 1.1.0 - 05/2025"));
   Serial.println(F("----------------------------------------------------------------------------"));
 
   // I2C RESET
