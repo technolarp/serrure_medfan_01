@@ -11,9 +11,8 @@ Si le glyphe est correct, il s’illume en jaune et il faut tenter de trouver le
 **[Composants](#Composants)**  
 **[Branchements](#Branchements)**  
 **[BackOffice](#BackOffice)**  
-Paramètres de gameplay
-Paramètres Réseau
-
+**[Paramètres de gameplay](#param%C3%A8tres-de-gameplay)**  
+**[Paramètres Réseau](#param%C3%A8tres-r%C3%A9seau)**  
 
 ## Exemples
 Voici deux exemples de casing plus avancé :
@@ -118,4 +117,4 @@ Pour se connecter au back office de l'objet, il faut suivre ce [tutorial](https:
 | **Debounce Time**       | un paramètre à n pas modifier                                                                                                                                                    |
 ## Paramètres Réseau
 
-Pour avoir le descriptif des paramètres réseau suivez ce [lien]([https://github.com/technolarp/technolarp.github.io/wiki/Installation-du-firmware](https://github.com/technolarp/technolarp.github.io/wiki/Param%C3%A8tres-R%C3%A9seau))  
+Pour avoir le descriptif des paramètres réseau suivez ce [lien](https://github.com/technolarp/technolarp.github.io/wiki/Param%C3%A8tres-R%C3%A9seau)  
