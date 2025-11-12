@@ -24,7 +24,7 @@ Dans les 2 cas, les leds se trouvent derrière un diffuseur de lumière (une mat
 
 
 ## Composants
-Vous aurez besoin pour monter le VU-mètre
+Vous aurez besoin pour monter la serrure medfan 01
 
 |  | |
 | :---------------- | :------: |
