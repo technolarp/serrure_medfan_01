@@ -61,7 +61,9 @@ Ils vont sur les broches du MCP23017 (broches bleues/noires et broches vertes/no
 | capteur reed 13 | b5 |
 | capteur reed 14 | b6 |
 | capteur reed 15 | b7 |
-**!! Attention au sens de numérotation des broches !!**
+
+
+**Attention au sens de numérotation des broches**
 <img width="800" alt="unnamed (3)" src="https://github.com/user-attachments/assets/74ecd236-886d-4812-81c1-d85b1e8c6625" />
 
 |                   |                   |
