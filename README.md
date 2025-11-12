@@ -1,7 +1,7 @@
 # serrure_medfan_01
-Cet objet simule une serrure d'aspect magique qui s'ouvre et se ferme à l'aide d'un code qui doit être réalisé en activant des capteurs reed avec un aimant. Les capteurs sont cachés sous des glyphes illuminés par des leds RGB. Le code est enregistré en mémoire. De nombreux paramètres sont configurables via un back office accessible en wifi. La logique du code est assez simple est peut-être facilement trouvée par essais successifs. par exemple, avec 4 capteurs reed, il y a 4*3*2*1 combinaison possibles, soit seulement 24 combinaisons à essayer avant de trouver la bonne
+Cet objet simule une serrure d'aspect magique qui s'ouvre et se ferme à l'aide d'un code qui doit être réalisé en activant des capteurs reed avec un aimant. Les capteurs sont cachés sous des glyphes illuminés par des leds RGB. Le code est enregistré en mémoire. De nombreux paramètres sont configurables via un back office accessible en wifi. La logique du code est assez simple est peut-être facilement trouvée par essais successifs. par exemple, avec 4 capteurs reed, il y a 4*3*2*1 combinaison possibles, soit seulement 24 combinaisons à essayer avant de trouver la bonne.
 
-Dans la configuration “usine”, la serrure fonctionne de la façon suivante. Il y a 4 glyphes composés de 4 capteurs magnétiques et 4 groupes de 2 leds. Pour ouvrir ou fermer la serrure, il faut trouver la bonne séquence d’activation pour chaque glyphe. Chaque glyphe doit être activé une seule fois et passant un aimant près du capteur magnétique
+Dans la configuration “usine”, la serrure fonctionne de la façon suivante. Il y a 4 glyphes composés de 4 capteurs magnétiques et 4 groupes de 2 leds. Pour ouvrir ou fermer la serrure, il faut trouver la bonne séquence d’activation pour chaque glyphe. Chaque glyphe doit être activé une seule fois et passant un aimant près du capteur magnétique.
 
 Si le glyphe est correct, il s’illume en jaune et il faut tenter de trouver le suivant. Si le glyphe n’est pas le bon, tous les glyphes déjà activés sont désactivés et il faut refaire la séquence depuis le début.
 
@@ -18,7 +18,7 @@ Voici deux exemples de casing plus avancé :
  - Le premier est tout simple, il utilise l’anneau de leds du kit technoLARP.
  - Le deuxième est plus abouti, il utilise 9 leds et 9 capteurs reed avec un boitier en bois mdf peint.
 
-Dans les 2 cas, les leds se trouvent derrière un diffuseur de lumière (une matière blanche translucide) et d’un masque (matière opaque) qui permet de former un texte visible à l’oeil nu
+Dans les 2 cas, les leds se trouvent derrière un diffuseur de lumière (une matière blanche translucide) et d’un masque (matière opaque) qui permet de former un texte visible à l’oeil nu!
 
 
 <img width="300"  alt="serrure_medfan_exemple_1" src="https://github.com/user-attachments/assets/cadc7f39-f503-4a64-b4d4-6829afc173f2" />
@@ -26,7 +26,7 @@ Dans les 2 cas, les leds se trouvent derrière un diffuseur de lumière (une mat
 
 
 ## Composants
-Vous aurez besoin pour monter la serrure medfan 01
+Vous aurez besoin pour monter la serrure medfan 01 :
 
 |  | |
 | :---------------- | :------: |
