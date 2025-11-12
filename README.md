@@ -38,15 +38,48 @@ Vous aurez besoin pour monter la serrure medfan 01 :
 | Une batterie 18650 et son support | <img src="./images/technolarp_18650.jpg" width="200"> |
 
 ## Branchements
+Connecter les composants sur le kit technoLARP comme sur cette photo :
+<img width="740" height="884" alt="unnamed (2)" src="https://github.com/user-attachments/assets/86afda35-bcf4-4280-bbcd-5b59fee11da7" />
 
-1. Connecter le potentimètre sur le connecteur "POT" en rouge sur le schéma
-1. Connecter les leds RGB sur le connecteur "NEOPIXEL" en orange sur le schéma
+Ils vont sur les broches du MCP23017 (broches bleues/noires et broches vertes/noires) dans cet ordre :
+*La numérotation des capteurs commence à 0 et non pas à 1*
+|                 |    |
+|-----------------|----|
+| capteur reed 0  | a0 |
+| capteur reed 1  | a1 |
+| capteur reed 2  | a2 |
+| capteur reed 3  | a3 |
+| capteur reed 4  | a4 |
+| capteur reed 5  | a5 |
+| capteur reed 6  | a6 |
+| capteur reed 7  | a7 |
+| capteur reed 8  | b0 |
+| capteur reed 9  | b1 |
+| capteur reed 10 | b2 |
+| capteur reed 11 | b3 |
+| capteur reed 12 | b4 |
+| capteur reed 13 | b5 |
+| capteur reed 14 | b6 |
+| capteur reed 15 | b7 |
+**!! Attention au sens de numérotation des broches !!**
+<img width="800" alt="unnamed (3)" src="https://github.com/user-attachments/assets/74ecd236-886d-4812-81c1-d85b1e8c6625" />
 
-1. A côté du connecteur "NEOPIXEL", positionner le cavalier sur la position 3.3V ou 5V
-    1. Si le kit sera alimenté par un câble USB, positionner le cavalier en 5V <img src="./images/technolarp_pcb_choix_5V.png" width="100">  
-    1. Si le kit sera alimenté par la batterie, positionner le cavalier en 3.3V <img src="./images/technolarp_pcb_choix_3V.png" width="100"> 
+|                   |                   |
+|-------------------|-------------------|
+| **a7    <====    a0** | **b0   ====>     b7** |
 
-<img src="./images/technolarp_pcb_connecteurs.png" width="800">
+Dans le kit technoLARP, il y a 4 capteurs reeds. Ils seront donc connectés sur les broches a0 à a3
+
+Les capteurs ont 2 broches dupont femelles et se connectent de cette façon !
+ - 1 fiche sur la broche verte ou bleue
+ - la 2ème sur la broche noire au dessus (la couleur des fils n’a pas d’importance)
+
+Exemple pour le capteur n°1
+<img width="800"  alt="unnamed (4)" src="https://github.com/user-attachments/assets/369087a3-96b0-4f7d-a6ed-19d3136401d1" />
+
+Exemple avec les 4 capteurs
+<img width="752" alt="unnamed (5)" src="https://github.com/user-attachments/assets/253f0eca-7694-4ac9-8b8d-e81af6e85414" />
+
 
 ## Installation
 Pour installer le firmware de l'objet, il faut suivre ce [tutorial](https://github.com/technolarp/technolarp.github.io/wiki/Installation-du-firmware)  
