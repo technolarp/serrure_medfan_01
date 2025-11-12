@@ -75,9 +75,11 @@ Les capteurs ont 2 broches dupont femelles et se connectent de cette façon !
  - la 2ème sur la broche noire au dessus (la couleur des fils n’a pas d’importance)
 
 Exemple pour le capteur n°1
+
 <img width="800"  alt="unnamed (4)" src="https://github.com/user-attachments/assets/369087a3-96b0-4f7d-a6ed-19d3136401d1" />
 
 Exemple avec les 4 capteurs
+
 <img width="752" alt="unnamed (5)" src="https://github.com/user-attachments/assets/253f0eca-7694-4ac9-8b8d-e81af6e85414" />
 
 
