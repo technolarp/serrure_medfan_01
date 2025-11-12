@@ -19,8 +19,10 @@ Voici deux exemples de casing plus avancé :
  - Le deuxième est plus abouti, il utilise 9 leds et 9 capteurs reed avec un boitier en bois mdf peint.
 
 Dans les 2 cas, les leds se trouvent derrière un diffuseur de lumière (une matière blanche translucide) et d’un masque (matière opaque) qui permet de former un texte visible à l’oeil nu
-<img width="1164" height="850" alt="serrure_medfan_exemple_1" src="https://github.com/user-attachments/assets/cadc7f39-f503-4a64-b4d4-6829afc173f2" />
-<img width="892" height="848" alt="serrure_medfan_exemple_2" src="https://github.com/user-attachments/assets/16e42c1b-76b2-4fd0-8c64-456232a7e02c" />
+
+
+<img width="300"  alt="serrure_medfan_exemple_1" src="https://github.com/user-attachments/assets/cadc7f39-f503-4a64-b4d4-6829afc173f2" />
+<img width="300" alt="serrure_medfan_exemple_2" src="https://github.com/user-attachments/assets/16e42c1b-76b2-4fd0-8c64-456232a7e02c" />
 
 
 ## Composants
