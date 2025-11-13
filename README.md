@@ -96,6 +96,8 @@ Pour se connecter au back office de l'objet, il faut suivre ce [tutorial](https:
 <img width="608" height="922" alt="serrure_medfan_back-office" src="https://github.com/user-attachments/assets/53296d62-3844-4aaf-b9e3-07d6e23bd710" />
 
 ## Paramètres de gameplay
+Ces paramètres permettent de contrôler le gameplay de l’objet.
+
 
 | Nom         | Descriptif                                                                                                                         |
 |---------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
