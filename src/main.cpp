@@ -161,15 +161,16 @@ void setup()
   // MCP23017
   aMcp23017.beginMcp23017(0);
 
-  // FASTLED
-  aFastled.setNbLed(aConfig.objectConfig.activeLeds);
-  aFastled.setBrightness(aConfig.objectConfig.brightness);
-  // animation led de depart
-  aFastled.animationDepart(50, aFastled.getNbLed() * 2, CRGB::Blue);
-
   // initialiser l'aleat
   randomSeed(ESP.getCycleCount());
 
+  // FASTLED
+  aFastled.setNbLed(aConfig.objectConfig.activeLeds);
+  aFastled.setBrightness(aConfig.objectConfig.brightness);
+  
+  // animation led de depart
+  aFastled.animationDepart(50, aFastled.getNbLed() * 2, CRGB::Blue);
+  
   // WIFI
   WiFi.disconnect(true);
 
