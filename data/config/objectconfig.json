@@ -1,7 +1,7 @@
 {
 	"objectId": 1,
 	"groupId": 1,
-	"objectName": "serrure_magique_1",
+	"objectName": "serrure-magique-01",
 	"activeLeds": 8,
 	"nbSegments": 4,
 	"ledParSegment": 2,
