@@ -81,7 +81,7 @@ class M_config
       Serial.println(F("Failed to open file for reading"));
       return;
     }
-    
+  
     JsonDocument doc;
     
     // Deserialize the JSON document
@@ -111,7 +111,7 @@ class M_config
       objectConfig.indexCode = doc["indexCode"];
       objectConfig.timeoutReset = doc["timeoutReset"];  
       objectConfig.debounceTime = doc["debounceTime"]; 
-      
+
       if (doc["couleurs"].is<JsonVariant>())
       {
         JsonArray couleurArray=doc["couleurs"];
@@ -125,7 +125,7 @@ class M_config
           objectConfig.couleurs[i].blue =  rgbArray[2];
         }        
       }
-      
+
       if (doc["code"].is<JsonVariant>())
       {
         JsonArray codesArray = doc["code"];
@@ -148,22 +148,229 @@ class M_config
       // Close the file (File's destructor doesn't close the file)
       file.close();
     }
+
+    // Allocate a temporary JsonDocument
+    JsonDocument doc;
+
+    doc["objectName"] = objectConfig.objectName;
     
-    void writeObjectConfig(const char * filename)
-    { 
-      // Delete existing file, otherwise the configuration is appended to the file
-      LittleFS.remove(filename);
+    doc["objectId"] = objectConfig.objectId;
+    doc["groupId"] = objectConfig.groupId;
+    
+    doc["activeLeds"] = objectConfig.ledParSegment*objectConfig.nbSegments;
+    doc["brightness"] = objectConfig.brightness;
+    doc["intervalScintillement"] = objectConfig.intervalScintillement;
+    doc["scintillementOnOff"] = objectConfig.scintillementOnOff;
+    doc["ledParSegment"] = objectConfig.ledParSegment;
+    doc["nbSegments"] = objectConfig.nbSegments;
+    
+    doc["statutActuel"] = objectConfig.statutActuel;
+    doc["statutPrecedent"] = objectConfig.statutPrecedent;
+    
+    doc["tailleCode"] = objectConfig.tailleCode;
+    doc["indexCode"] = objectConfig.indexCode;
+    doc["timeoutReset"] = objectConfig.timeoutReset;
+    doc["debounceTime"] = objectConfig.debounceTime;
+
+    JsonArray codeArray = doc["code"].to<JsonArray>();
+
+    for (uint8_t i=0;i<MAX_SIZE_CODE;i++)
+    {
+      codeArray.add(objectConfig.code[i]);
+    }
+
+    JsonArray couleurArray = doc["couleurs"].to<JsonArray>();
+
+    for (uint8_t i=0;i<NB_COULEURS;i++)
+    {
+      JsonArray couleur_x = couleurArray.add<JsonArray>();
       
-      // Open file for writing
-      File file = LittleFS.open(filename, "w");
-      if (!file) 
-      {
-        Serial.println(F("Failed to create file"));
-        return;
+      couleur_x.add(objectConfig.couleurs[i].red);
+      couleur_x.add(objectConfig.couleurs[i].green);
+      couleur_x.add(objectConfig.couleurs[i].blue);
+    }
+
+    // Serialize JSON to file
+    if (serializeJson(doc, file) == 0) 
+    {
+      Serial.println(F("Failed to write to file"));
+    }
+
+    // Close the file (File's destructor doesn't close the file)
+    file.close();
+  }
+
+  void writeDefaultObjectConfig(const char * filename)
+  {
+    objectConfig.objectId = 1;
+    objectConfig.groupId = 1;
+
+    objectConfig.activeLeds = 8;
+    objectConfig.brightness = 80;
+    objectConfig.intervalScintillement = 50;
+    objectConfig.scintillementOnOff = 0;
+    objectConfig.nbSegments = 4;
+    objectConfig.ledParSegment = 2; 
+       
+    objectConfig.statutActuel = 1;
+    objectConfig.statutPrecedent = 1;
+    
+    objectConfig.tailleCode = 4;
+    objectConfig.indexCode = 0;
+    objectConfig.timeoutReset = 5000;
+    objectConfig.debounceTime = 300;
+
+    objectConfig.couleurs[0].red = 255;
+    objectConfig.couleurs[0].green = 0;
+    objectConfig.couleurs[0].blue =  0;
+    
+    objectConfig.couleurs[1].red = 0;
+    objectConfig.couleurs[1].green = 255;
+    objectConfig.couleurs[1].blue =  0;
+
+    objectConfig.couleurs[2].red = 255;
+    objectConfig.couleurs[2].green = 255;
+    objectConfig.couleurs[2].blue =  0;
+    
+    strlcpy( objectConfig.objectName,
+             "serrure_magique_1",
+             SIZE_ARRAY);
+    
+    for (uint8_t i=0;i<MAX_SIZE_CODE;i++)
+    {
+      objectConfig.code[i]=i;
+    }
+    
+    
+    writeObjectConfig(filename);
+  }
+ 
+  void readNetworkConfig(const char * filename)
+  {
+    // lire les données depuis le fichier littleFS
+    // Open file for reading
+    File file = LittleFS.open(filename, "r");
+    if (!file) 
+    {
+      Serial.println(F("Failed to open file for reading"));
+      return;
+    }
+  
+    JsonDocument doc;
+    
+    // Deserialize the JSON document
+    DeserializationError error = deserializeJson(doc, file);
+    if (error)
+    {
+      Serial.println(F("Failed to deserialize file in read network "));
+      Serial.println(error.c_str());
+    }
+    else
+    {
+      // Copy values from the JsonObject to the Config
+      if (doc["apIP"].is<JsonVariant>())
+      { 
+        JsonArray apIP = doc["apIP"];
+        
+        networkConfig.apIP[0] = apIP[0];
+        networkConfig.apIP[1] = apIP[1];
+        networkConfig.apIP[2] = apIP[2];
+        networkConfig.apIP[3] = apIP[3];
+      }
+
+      if (doc["apNetMsk"].is<JsonVariant>())
+      { 
+        JsonArray apNetMsk = doc["apNetMsk"];
+        
+        networkConfig.apNetMsk[0] = apNetMsk[0];
+        networkConfig.apNetMsk[1] = apNetMsk[1];
+        networkConfig.apNetMsk[2] = apNetMsk[2];
+        networkConfig.apNetMsk[3] = apNetMsk[3];
+      }
+          
+      if (doc["apName"].is<const char*>())
+      { 
+        strlcpy(  networkConfig.apName,
+                  doc["apName"],
+                  SIZE_ARRAY);
+      }
+
+      if (doc["apPassword"].is<const char*>())
+      { 
+        strlcpy(  networkConfig.apPassword,
+                  doc["apPassword"],
+                  SIZE_ARRAY);
       }
       
-      // Allocate a temporary JsonDocument
-      JsonDocument doc;
+    // Close the file (File's destructor doesn't close the file)
+    file.close();
+  }
+  
+  void writeNetworkConfig(const char * filename)
+  {
+    // Delete existing file, otherwise the configuration is appended to the file
+    LittleFS.remove(filename);
+  
+    // Open file for writing
+    File file = LittleFS.open(filename, "w");
+    if (!file) 
+    {
+      Serial.println(F("Failed to create file"));
+      return;
+    }
+
+    // Allocate a temporary JsonDocument
+    JsonDocument doc;
+
+    doc["apName"] = networkConfig.apName;
+    doc["apPassword"] = networkConfig.apPassword;
+
+    JsonDocument docIp;
+    JsonArray arrayIp = docIp.to<JsonArray>();
+    arrayIp.add(networkConfig.apIP[0]);
+    arrayIp.add(networkConfig.apIP[1]);
+    arrayIp.add(networkConfig.apIP[2]);
+    arrayIp.add(networkConfig.apIP[3]);
+
+    JsonDocument docNetMask;
+    JsonArray arrayNetMask = docNetMask.to<JsonArray>();
+    arrayNetMask.add(networkConfig.apNetMsk[0]);
+    arrayNetMask.add(networkConfig.apNetMsk[1]);
+    arrayNetMask.add(networkConfig.apNetMsk[2]);
+    arrayNetMask.add(networkConfig.apNetMsk[3]);
+    
+    doc["apIP"]=arrayIp;
+    doc["apNetMsk"]=arrayNetMask;
+
+    // Serialize JSON to file
+    if (serializeJson(doc, file) == 0) 
+    {
+      Serial.println(F("Failed to write to file"));
+    }
+    
+    // Close the file (File's destructor doesn't close the file)
+    file.close();
+  }
+  
+  void writeDefaultNetworkConfig(const char * filename)
+  {
+    strlcpy(  networkConfig.apName,
+              "SERRURE_MAGIQUE_1",
+              SIZE_ARRAY);
+    
+    strlcpy(  networkConfig.apPassword,
+              "",
+              SIZE_ARRAY);
+  
+    networkConfig.apIP[0]=192;
+    networkConfig.apIP[1]=168;
+    networkConfig.apIP[2]=1;
+    networkConfig.apIP[3]=1;
+  
+    networkConfig.apNetMsk[0]=255;
+    networkConfig.apNetMsk[1]=255;
+    networkConfig.apNetMsk[2]=255;
+    networkConfig.apNetMsk[3]=0;
       
       doc["objectName"] = objectConfig.objectName;
       
@@ -209,7 +416,41 @@ class M_config
         Serial.println(F("Failed to write to file"));
       }
       
-      // Close the file (File's destructor doesn't close the file)
+    JsonDocument doc;
+    
+    // Deserialize the JSON document
+    DeserializationError error = deserializeJson(doc, file);
+    if (error)
+    {
+      Serial.println(F("Failed to deserialize file in print object"));
+      Serial.println(error.c_str());
+    }
+    else
+    {
+      //serializeJsonPretty(doc, Serial);
+      serializeJson(doc, Serial);
+      Serial.println();
+    }
+    
+    // Close the file (File's destructor doesn't close the file)
+    file.close();
+  }
+  
+  void listDir(const char * dirname)
+  {
+    Serial.printf("Listing directory: %s", dirname);
+    Serial.println();
+  
+    Dir root = LittleFS.openDir(dirname);
+  
+    while (root.next())
+    {
+      File file = root.openFile("r");
+      Serial.print(F("  FILE: "));
+      Serial.print(root.fileName());
+      Serial.print(F("  SIZE: "));
+      Serial.print(file.size());
+      Serial.println();
       file.close();
     }
     

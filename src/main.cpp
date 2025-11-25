@@ -106,8 +106,8 @@ void checkReed();
 void checkTimeout();
 void showSparklePixel(uint8_t led);
 void checkCharacter(char *toCheck, const char *allowed, char replaceChar);
-void onEvent(AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEventType type, void *arg, uint8_t *data, size_t len);
-void handleWebSocketMessage(void *arg, uint8_t *data, size_t len);
+void onEvent(AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEventType type, void *arg, uint8_t *data, size_t len); 
+void handleWebSocketMessage(void *arg, uint8_t *data, size_t len); 
 void handleWebsocketBuffer();
 void notFound(AsyncWebServerRequest *request);
 void convertStrToRGB(const char *source, uint8_t *r, uint8_t *g, uint8_t *b);
@@ -660,33 +660,33 @@ uint16_t checkValeur(uint16_t valeur, uint16_t minValeur, uint16_t maxValeur)
 
 void onEvent(AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEventType type, void *arg, uint8_t *data, size_t len)
 {
-  switch (type)
-  {
-    case WS_EVT_CONNECT:
-    Serial.printf("WebSocket client #%u connected from %s\n", client->id(), client->remoteIP().toString().c_str());
-    // send config value to html
-    sendObjectConfig();
-    sendNetworkConfig();
-    
-    // send volatile info
-    sendMaxLed();
-    
-    sendUptime();
-    sendStatut();
-    break;
-    
-    case WS_EVT_DISCONNECT:
-    Serial.printf("WebSocket client #%u disconnected\n", client->id());
-    break;
-    
-    case WS_EVT_DATA:
-    handleWebSocketMessage(arg, data, len);
-    break;
-    
-    case WS_EVT_PING:
-    case WS_EVT_PONG:
-    case WS_EVT_ERROR:
-    break;
+   switch (type) 
+    {
+      case WS_EVT_CONNECT:
+        Serial.printf("WebSocket client #%u connected from %s\n", client->id(), client->remoteIP().toString().c_str());
+        // send config value to html
+        sendObjectConfig();
+        sendNetworkConfig();
+        
+        // send volatile info
+        sendMaxLed();
+
+        sendUptime();
+        sendStatut();
+        break;
+        
+      case WS_EVT_DISCONNECT:
+        Serial.printf("WebSocket client #%u disconnected\n", client->id());
+        break;
+        
+      case WS_EVT_DATA:
+        handleWebSocketMessage(arg, data, len);
+        break;
+        
+      case WS_EVT_PING:
+      case WS_EVT_PONG:
+      case WS_EVT_ERROR:
+        break;
   }
 }
 
@@ -705,20 +705,7 @@ void handleWebSocketMessage(void *arg, uint8_t *data, size_t len)
 
 void handleWebsocketBuffer()
 {
-  JsonDocument doc;
-  
-  DeserializationError error = deserializeJson(doc, bufferWebsocket);
-  if (error)
-  {
-    Serial.println(F("Failed to deserialize buffer"));
-  }
-  else
-  {
-    // write config or not
-    bool writeObjectConfigFlag = false;
-    bool sendObjectConfigFlag = false;
-    bool writeNetworkConfigFlag = false;
-    bool sendNetworkConfigFlag = false;
+    JsonDocument doc;
     
     // **********************************************
     // modif object config
@@ -729,114 +716,242 @@ void handleWebsocketBuffer()
         doc["new_objectName"],
         sizeof(aConfig.objectConfig.objectName));
         
-        // lowercase
-        for (uint8_t i = 0; i < sizeof(aConfig.objectConfig.objectName); i++)
+        // **********************************************
+        // modif object config
+        // **********************************************
+        if (doc["new_objectName"].is<const char*>())
         {
-          aConfig.objectConfig.objectName[i] = tolower(aConfig.objectConfig.objectName[i]);
+          strlcpy(  aConfig.objectConfig.objectName,
+                    doc["new_objectName"],
+                    sizeof(aConfig.objectConfig.objectName));
+  
+          writeObjectConfigFlag = true;
+          sendObjectConfigFlag = true;
+        }
+  
+        if (doc["new_objectId"].is<unsigned short>()) 
+        {
+          uint16_t tmpValeur = doc["new_objectId"];
+          aConfig.objectConfig.objectId = checkValeur(tmpValeur,1,1000);
+  
+          writeObjectConfigFlag = true;
+          sendObjectConfigFlag = true;
+        }
+  
+        if (doc["new_groupId"].is<unsigned short>()) 
+        {
+          uint16_t tmpValeur = doc["new_groupId"];
+          aConfig.objectConfig.groupId = checkValeur(tmpValeur,1,1000);
+          
+          writeObjectConfigFlag = true;
+          sendObjectConfigFlag = true;
+        }
+  
+        if (doc["new_activeLeds"].is<unsigned short>()) 
+        {
+          FastLED.clear(); 
+          
+          uint16_t tmpValeur = doc["new_activeLeds"];
+          aConfig.objectConfig.activeLeds = checkValeur(tmpValeur,1,NB_LEDS_MAX);
+          uneFois=true;
+          
+          writeObjectConfigFlag = true;
+          sendObjectConfigFlag = true;
         }
         
-        // check character
-        char const * listeCheck = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-";
-        checkCharacter(aConfig.objectConfig.objectName, listeCheck, '-');
+        if (doc["new_brightness"].is<unsigned short>())
+        {
+          uint16_t tmpValeur = doc["new_brightness"];
+          aConfig.objectConfig.brightness = checkValeur(tmpValeur,0,255);
+          FastLED.setBrightness(aConfig.objectConfig.brightness);
+          uneFois=true;
+          
+          writeObjectConfigFlag = true;
+          sendObjectConfigFlag = true;
+        }
+
+        if (doc["new_intervalScintillement"].is<unsigned short>())
+        {
+          uint16_t tmpValeur = doc["new_intervalScintillement"];
+          aConfig.objectConfig.intervalScintillement = checkValeur(tmpValeur,0,1000);
+          aFastled.setIntervalControlBrightness(aConfig.objectConfig.intervalScintillement);
+          
+          writeObjectConfigFlag = true;
+          sendObjectConfigFlag = true;
+        }
         
-        writeObjectConfigFlag = true;
-        sendObjectConfigFlag = true;
-      }
-      
-      if (doc["new_objectId"].is<unsigned short>())
-      {
-        uint16_t tmpValeur = doc["new_objectId"];
-        aConfig.objectConfig.objectId = checkValeur(tmpValeur, 1, 1000);
+        if (doc["new_scintillementOnOff"].is<unsigned short>())
+        {
+          uint16_t tmpValeur = doc["new_scintillementOnOff"];
+          aConfig.objectConfig.scintillementOnOff = checkValeur(tmpValeur,0,1);
+          aFastled.setControlBrightness(aConfig.objectConfig.scintillementOnOff);
+          
+          if (aConfig.objectConfig.scintillementOnOff == 0)
+          {
+            FastLED.setBrightness(aConfig.objectConfig.brightness);
+          }
+          
+          writeObjectConfigFlag = true;
+          sendObjectConfigFlag = true;
+        }
+
+        if (doc["new_couleurs"].is<JsonVariant>()) 
+        {
+          JsonArray newCouleur = doc["new_couleurs"];
+  
+          uint8_t i = newCouleur[0];
+          char newColorStr[8];
+          strncpy(newColorStr, newCouleur[1], 8);
+            
+          uint8_t r;
+          uint8_t g;
+          uint8_t b;
+            
+          convertStrToRGB(newColorStr, &r, &g, &b);
+          aConfig.objectConfig.couleurs[i].red=r;
+          aConfig.objectConfig.couleurs[i].green=g;
+          aConfig.objectConfig.couleurs[i].blue=b;
+            
+          writeObjectConfigFlag = true;
+          sendObjectConfigFlag = true;
+        }
+  
+        if (doc["new_nbSegments"].is<unsigned short>())
+        {
+          uint16_t tmpValeur = doc["new_nbSegments"];
+          aConfig.objectConfig.nbSegments = checkValeur(tmpValeur,1,10);
+          aConfig.objectConfig.activeLeds = aConfig.objectConfig.nbSegments * aConfig.objectConfig.ledParSegment;
+          aFastled.setNbLed(aConfig.objectConfig.activeLeds);
+          aFastled.allLedOff(false);
+                    
+          uneFois=true;
+          
+          writeObjectConfigFlag = true;
+          sendObjectConfigFlag = true;
+        }
+
+        if (doc["new_ledParSegment"].is<unsigned short>())
+        {
+          uint16_t tmpValeur = doc["new_ledParSegment"];
+          aConfig.objectConfig.ledParSegment = checkValeur(tmpValeur,1,5);
+          aConfig.objectConfig.activeLeds = aConfig.objectConfig.nbSegments * aConfig.objectConfig.ledParSegment;
+          aFastled.setNbLed(aConfig.objectConfig.activeLeds);
+          aFastled.allLedOff(false);
+          
+          uneFois=true;
+          
+          writeObjectConfigFlag = true;
+          sendObjectConfigFlag = true;
+        }
+
+        if (doc["new_tailleCode"].is<unsigned short>())
+        {
+          uint16_t tmpValeur = doc["new_tailleCode"];
+          aConfig.objectConfig.tailleCode = checkValeur(tmpValeur,1,10);
+          uneFois=true;
+          
+          writeObjectConfigFlag = true;
+          sendObjectConfigFlag = true;
+        }
+
+        if (doc["new_code"].is<JsonVariant>())
+        {
+          JsonArray newCodeToSet = doc["new_code"];
         
-        writeObjectConfigFlag = true;
-        sendObjectConfigFlag = true;
-      }
-      
-      if (doc["new_groupId"].is<unsigned short>())
-      {
-        uint16_t tmpValeur = doc["new_groupId"];
-        aConfig.objectConfig.groupId = checkValeur(tmpValeur, 1, 1000);
-        
-        writeObjectConfigFlag = true;
-        sendObjectConfigFlag = true;
-      }
-      
-      if (doc["new_activeLeds"].is<unsigned short>())
-      {
-        FastLED.clear();
-        
-        uint16_t tmpValeur = doc["new_activeLeds"];
-        aConfig.objectConfig.activeLeds = checkValeur(tmpValeur, 1, NB_LEDS_MAX);
-        uneFois = true;
-        
-        writeObjectConfigFlag = true;
-        sendObjectConfigFlag = true;
-      }
-      
-      if (doc["new_brightness"].is<unsigned short>())
-      {
-        uint16_t tmpValeur = doc["new_brightness"];
-        aConfig.objectConfig.brightness = checkValeur(tmpValeur, 0, 255);
-        FastLED.setBrightness(aConfig.objectConfig.brightness);
-        uneFois = true;
-        
-        writeObjectConfigFlag = true;
-        sendObjectConfigFlag = true;
-      }
-      
-      if (doc["new_intervalScintillement"].is<unsigned short>())
-      {
-        uint16_t tmpValeur = doc["new_intervalScintillement"];
-        aConfig.objectConfig.intervalScintillement = checkValeur(tmpValeur, 0, 1000);
-        aFastled.setIntervalControlBrightness(aConfig.objectConfig.intervalScintillement);
-        
-        writeObjectConfigFlag = true;
-        sendObjectConfigFlag = true;
-      }
-      
-      if (doc["new_scintillementOnOff"].is<unsigned short>())
-      {
-        uint16_t tmpValeur = doc["new_scintillementOnOff"];
-        aConfig.objectConfig.scintillementOnOff = checkValeur(tmpValeur, 0, 1);
-        aFastled.setControlBrightness(aConfig.objectConfig.scintillementOnOff);
-        
-        if (aConfig.objectConfig.scintillementOnOff == 0)
+          uint8_t nouvellePosition = newCodeToSet[0];
+          uint8_t nouvelleValeur = newCodeToSet[1];
+          
+          aConfig.objectConfig.code[nouvellePosition]=nouvelleValeur;
+          
+          writeObjectConfigFlag = true;
+          sendObjectConfigFlag = true;
+        }
+
+        if ( doc["new_resetCode"].is<unsigned short>() && doc["new_resetCode"]==1 )
+        {
+          for (uint8_t i=0;i<MAX_SIZE_CODE;i++)
+          {
+            aConfig.objectConfig.code[i] = i;
+          }
+          
+          writeObjectConfigFlag = true;
+          sendObjectConfigFlag = true;
+        }
+
+        if ( doc["new_aleatCode"].is<unsigned short>() && doc["new_aleatCode"]==1 )
+        {
+          uint8_t tabAleatoire[aConfig.objectConfig.nbSegments];
+          for (uint8_t i=0;i<aConfig.objectConfig.nbSegments;i++)
+          {
+            tabAleatoire[i]=random(10,50);
+          }
+
+          for (uint8_t i=0;i<aConfig.objectConfig.nbSegments;i++)
+          {
+            uint8_t indexAleat = indexMaxValeur(aConfig.objectConfig.nbSegments, tabAleatoire);
+            tabAleatoire[indexAleat]=0;
+            aConfig.objectConfig.code[i]=indexAleat;
+          }
+
+          writeObjectConfigFlag = true;
+          sendObjectConfigFlag = true;
+        }
+
+        if (doc["new_timeoutReset"].is<unsigned short>())
+        {
+          uint16_t tmpValeur = doc["new_timeoutReset"];
+          aConfig.objectConfig.timeoutReset = checkValeur(tmpValeur,1,30000);
+          uneFois=true;
+          
+          writeObjectConfigFlag = true;
+          sendObjectConfigFlag = true;
+        }
+
+        if (doc["new_debounceTime"].is<unsigned short>())
+        {
+          uint16_t tmpValeur = doc["new_debounceTime"];
+          aConfig.objectConfig.debounceTime = checkValeur(tmpValeur,50,1000);
+          
+          writeObjectConfigFlag = true;
+          sendObjectConfigFlag = true;
+        }
+
+        if (doc["new_statutActuel"].is<unsigned short>())
         {
           FastLED.setBrightness(aConfig.objectConfig.brightness);
         }
         
-        writeObjectConfigFlag = true;
-        sendObjectConfigFlag = true;
-      }
-      
-      if (doc["new_couleurs"].is<JsonVariant>())
-      {
-        JsonArray newCouleur = doc["new_couleurs"];
+        // **********************************************
+        // modif network config
+        // **********************************************
+        if (doc["new_apName"].is<const char*>()) 
+        {
+          strlcpy(  aConfig.networkConfig.apName,
+                    doc["new_apName"],
+                    sizeof(aConfig.networkConfig.apName));
         
-        uint8_t i = newCouleur[0];
-        char newColorStr[8];
-        strncpy(newColorStr, newCouleur[1], 8);
+          // check for unsupported char
+          char const * listeCheck = "ABCDEFGHIJKLMNOPQRSTUVWYXZ0123456789_-";
+          checkCharacter(aConfig.networkConfig.apName, listeCheck, 'A');
+          
+          writeNetworkConfigFlag = true;
+          sendNetworkConfigFlag = true;
+        }
         
-        uint8_t r;
-        uint8_t g;
-        uint8_t b;
+        if (doc["new_apPassword"].is<const char*>()) 
+        {
+          strlcpy(  aConfig.networkConfig.apPassword,
+                    doc["new_apPassword"],
+                    sizeof(aConfig.networkConfig.apPassword));
         
         convertStrToRGB(newColorStr, &r, &g, &b);
         aConfig.objectConfig.couleurs[i].red = r;
         aConfig.objectConfig.couleurs[i].green = g;
         aConfig.objectConfig.couleurs[i].blue = b;
         
-        writeObjectConfigFlag = true;
-        sendObjectConfigFlag = true;
-      }
-      
-      if (doc["new_nbSegments"].is<unsigned short>())
-      {
-        uint16_t tmpValeur = doc["new_nbSegments"];
-        aConfig.objectConfig.nbSegments = checkValeur(tmpValeur, 1, 10);
-        aConfig.objectConfig.activeLeds = aConfig.objectConfig.nbSegments * aConfig.objectConfig.ledParSegment;
-        aFastled.setNbLed(aConfig.objectConfig.activeLeds);
-        aFastled.allLedOff(false);
+        if (doc["new_apIP"].is<const char*>()) 
+        {
+          char newIPchar[16] = "";
         
         uneFois = true;
         
@@ -854,15 +969,9 @@ void handleWebsocketBuffer()
         
         uneFois = true;
         
-        writeObjectConfigFlag = true;
-        sendObjectConfigFlag = true;
-      }
-      
-      if (doc["new_tailleCode"].is<unsigned short>())
-      {
-        uint16_t tmpValeur = doc["new_tailleCode"];
-        aConfig.objectConfig.tailleCode = checkValeur(tmpValeur, 1, 10);
-        uneFois = true;
+        if (doc["new_apNetMsk"].is<const char*>()) 
+        {
+          char newNMchar[16] = "";
         
         writeObjectConfigFlag = true;
         sendObjectConfigFlag = true;
@@ -888,34 +997,23 @@ void handleWebsocketBuffer()
           aConfig.objectConfig.code[i] = i;
         }
         
-        writeObjectConfigFlag = true;
-        sendObjectConfigFlag = true;
-      }
-      
-      if ( doc["new_aleatCode"].is<unsigned short>() && doc["new_aleatCode"] == 1)
-      {
-        uint8_t tabAleatoire[aConfig.objectConfig.nbSegments];
-        for (uint8_t i = 0; i < aConfig.objectConfig.nbSegments; i++)
+        // actions sur le esp8266
+        if ( doc["new_restart"].is<unsigned char>() && doc["new_restart"]==1 )
         {
           tabAleatoire[i] = random(10, 50);
         }
         
-        for (uint8_t i = 0; i < aConfig.objectConfig.nbSegments; i++)
+        if ( doc["new_refresh"].is<unsigned char>() && doc["new_refresh"]==1 )
         {
           uint8_t indexAleat = indexMaxValeur(aConfig.objectConfig.nbSegments, tabAleatoire);
           tabAleatoire[indexAleat] = 0;
           aConfig.objectConfig.code[i] = indexAleat;
         }
         
-        writeObjectConfigFlag = true;
-        sendObjectConfigFlag = true;
-      }
-      
-      if (doc["new_timeoutReset"].is<unsigned short>())
-      {
-        uint16_t tmpValeur = doc["new_timeoutReset"];
-        aConfig.objectConfig.timeoutReset = checkValeur(tmpValeur, 1, 30000);
-        uneFois = true;
+        if ( doc["new_defaultObjectConfig"].is<unsigned char>() && doc["new_defaultObjectConfig"]==1 )
+        {
+          aConfig.writeDefaultObjectConfig("/config/objectconfig.txt");
+          Serial.println(F("reset to default object config"));
         
         writeObjectConfigFlag = true;
         sendObjectConfigFlag = true;
@@ -926,13 +1024,13 @@ void handleWebsocketBuffer()
         uint16_t tmpValeur = doc["new_debounceTime"];
         aConfig.objectConfig.debounceTime = checkValeur(tmpValeur, 50, 1000);
         
-        writeObjectConfigFlag = true;
-        sendObjectConfigFlag = true;
-      }
-      
-      if (doc["new_statutActuel"].is<unsigned short>())
-      {
-        aConfig.objectConfig.statutPrecedent = aConfig.objectConfig.statutActuel;
+        if ( doc["new_defaultNetworkConfig"].is<unsigned char>() && doc["new_defaultNetworkConfig"]==1 )
+        {
+          aConfig.writeDefaultNetworkConfig("/config/networkconfig.txt");
+          Serial.println(F("reset to default network config"));          
+          
+          sendNetworkConfigFlag = true;
+        }
         
         uint16_t tmpValeur = doc["new_statutActuel"];
         aConfig.objectConfig.statutActuel = tmpValeur;
