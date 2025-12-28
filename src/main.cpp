@@ -2,14 +2,14 @@
 ----------------------------------------------------------------------------
 TECHNOLARP - https://technolarp.github.io/
 SERRURE MEDFAN 01 - https://github.com/technolarp/serrure_medfan_01
-version 1.0 - 09/2023
+version 1.3.0 - 12/2025
 ----------------------------------------------------------------------------
 */
 
 /*
 ----------------------------------------------------------------------------
 Pour ce montage, vous avez besoin de 
-4 ou + led neopixel
+4 ou + led ws2812b
 4 ou + switch reed
 1 MCP23017 en i2c
 ----------------------------------------------------------------------------
@@ -18,7 +18,7 @@ Pour ce montage, vous avez besoin de
 /*
 ----------------------------------------------------------------------------
 PINOUT
-D0     NEOPIXEL
+D4     WS2812B
 D1     I2C SCL => SCL MCP23017
 D2     I2C SDA => SDA MCP23017
 
@@ -30,7 +30,7 @@ MCP_A3 switch reed 4
 */
 
 /*
-TODO version 1.1
+TODO version 1.4.0
 
 ajouter du son
 ajouter une commande d'actionneur
@@ -140,7 +140,7 @@ void setup()
   Serial.println(F("----------------------------------------------------------------------------"));
   Serial.println(F("TECHNOLARP - https://technolarp.github.io/"));
   Serial.println(F("SERRURE MEDFAN 01 - https://github.com/technolarp/serrure_mefan_01"));
-  Serial.println(F("version 1.0 - 09/2023"));
+  Serial.println(F("version 1.3.0 - 12/2025"));
   Serial.println(F("----------------------------------------------------------------------------"));
   
   // I2C RESET
